@@ -1,0 +1,589 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				layout="vertical" width="100%" height="100%"
+				creationComplete="init(event)" 
+				alpha="1.0" title="Proyectos" headerHeight="0"
+				backgroundColor="#FFFFFF" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" borderStyle="none" 
+				styleName="catalogPanel" backgroundAlpha="1.0">
+	
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Iconos;
+			import actionscripts.Serializer;
+			import actionscripts.Utils;
+			
+			import components.SuperGrid.SuperGrid;
+			import components.SuperGrid.contenedorSt;
+			
+			import flex_modulos.catalogos.Articulos.Articulos2Componente;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CollectionEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.skins.spark.EditableComboBoxSkin;
+			import mx.utils.StringUtil;
+			
+			private var ServicesHandler:HTTPService;
+			private var flagFiltrar:Boolean = false;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padreContenedor:contenedorSt;
+			[Bindable] public var _padreSuperGrid:SuperGrid;
+			[Bindable] public var claveCliente:String="";
+			[Bindable] public var strNombreProyecto:String="";
+			[Bindable] public var estado:int=0;
+			[Bindable] public var montoProbable:int = 0;
+			[Bindable] public var ACFabricantes:ArrayCollection = new ArrayCollection();
+			[Bindable] public var ACBitacoraEditar:ArrayCollection = new ArrayCollection();
+			
+			[Bindable] public var ACUsuariosAsignados:ArrayCollection = new ArrayCollection();
+			
+			[Bindable] public var strBitacoraSerializado:String="";
+			[Bindable] public var strAsignados:String="";
+			[Bindable] public var strBorrados:String="";
+			[Bindable] public var strFabricantes:String="";
+			[Bindable] public var strFabricantesAgregar:String="";
+			[Bindable] public var strFabricantesBorrar:String="";
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+					_padreContenedor.allowMaximize=false;
+					_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					
+					
+					
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					
+					
+					
+					
+					//ws_traerContactos.send();
+					if(strAccion=="NUEVO"){
+						
+						
+						estado=2;
+						imgEstado.source=seleccionaIconEstado(estado);
+						imgEstado.toolTip=seleccionaToolTipEstado(estado)
+						loader.dp.hacerWS(['ciudades']);
+						abrirVentanaNombreProyectoEstado();
+						
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						estado=item.estado;
+						
+						
+						imgEstado.source=seleccionaIconEstado(estado);
+						imgEstado.toolTip=seleccionaToolTipEstado(estado)
+						generarFabricantes();
+						generarCostos();
+						dtfFDecision.text = item.fecha_desicion;
+						dtfFAlta.text = item.fecha_creacion;
+						loader.dp.hacerWS(['ciudades']);
+						ws_vendedoresAsignados.send();
+						ws_traerFabricantesProyecto.send();
+						ws_traerBitacora.send();
+						
+					}	
+					//Alert.show(generarClaveProyecto());
+				}catch(ex:Error){
+					loader.msgAviso("stciudades->init() ",3,ex);
+				}
+			}
+			
+			private function addFocuses():void{
+				var focs:Array = data.split(',');
+				btnAbrirClientes.tabIndex[0];
+				           
+			} 
+			
+			protected function generarClaveProyecto():String{
+				var idusuario:int = loader.objetoUsuario.id;
+				var nombre:String = loader.objetoUsuario.nombre;
+				var apaterno:String = loader.objetoUsuario.apaterno;
+				var claveProyecto:String = "";
+				
+				claveProyecto = nombre.charAt(0)+apaterno.charAt(0)+idusuario+"-";
+				
+				return claveProyecto;
+			}
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//arrFamilias.source = Utils.clone(loader.dp.arrFamilias.source);		
+				/*	
+					// Ciudades
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrCiudades),new ObjectProxy({clave_ciudad:'',ciudad:'Sin Seleccionar'}));
+					arr1.refresh();
+					cbxCiudad.dataProvider = arr1;	
+					cbxCiudad.labelField = "ciudad";
+				*/	
+					
+					
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						cambiaRegistro();
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			public function cerrar():void{
+				_padreContenedor.cerrar();
+			}
+			
+			public function cambiaRegistro():void{
+				huboCambios = false;
+				// Buscar Ciudad
+			//	DataProviders.selectedIndexCombo(cbxCiudad,'clave_ciudad',item.clave_ciudad);
+				ws_vendedoresAsignados.send();
+				ws_traerFabricantesProyecto.send();
+				ws_traerBitacora.send();
+				
+				huboCambios=false;
+				
+			}
+			
+			
+			
+			/********** VALIDA Y GUARDA **********/
+			public function validar():void{
+				var errores:String="";				
+				//if(StringUtil.trim(txtClaveCiudad.text)==""){      errores+="- Ingrese la clave.\n"; }
+				//if(cbxEntidadFederativa.selectedIndex<=0){      errores+="- Ingrese el Estado.\n"; }
+				//if(cbxLocalidad.selectedIndex<0&&cbxLocalidad.selectedItem.nombrelocalidad.toString()!='Sin Seleccionar'){      errores+="- Ingrese el municipio.\n"; }
+				//if(StringUtil.trim(txtNombreCiudad.text)==""){ errores+="- Ingrese el nombre de la Localidad.\n"; }
+				//if(StringUtil.trim(txtDirectorlocalidad.text)==""){ errores+="- Ingrese el nombre del director de Ciudad.\n"; }
+				if(strAccion=="NUEVO"){
+					strBitacoraSerializado 	= Serializer.serialize(ACBitacora.source);
+					strFabricantes			= Serializer.serialize(ACFabricantes.source);
+					//strAsignados			= Serializer.serialize(ACUsuariosAgregados.source);
+					//strBorrados				= Serializer.serialize(ACUsuariosRemovidos.source);
+				}
+				if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+					strBitacoraSerializado	= Serializer.serialize(ACBitacoraEditar.source);
+					//strAsignados			= Serializer.serialize(ACUsuariosAgregados.source);
+					//strBorrados				= Serializer.serialize(ACUsuariosRemovidos.source);
+				}
+				
+				if(errores==""){
+					guardar();					
+				}else{	
+					loader.msgAviso(errores,2);
+				}
+				
+			}
+			
+			private function guardar():void{
+				if(strAccion=="NUEVO" || strAccion=="COPIAR")  loader.dp.cargaService(ws_nuevo_registro);
+				if(strAccion=="EDITAR") loader.dp.cargaService(ws_edita_registro);
+				
+			}
+			/********** VALIDA Y GUARDA **********/
+			
+			
+			
+			
+			
+			
+			
+			/******** RESULT HANDLERS *********/
+			public function resultGuardar(event:ResultEvent):void{
+				this.parentApplication.enabled=true;
+				var tipo:String    = (strAccion=="NUEVO" || strAccion=="COPIAR") ? "guardada"        : "editada";
+				var ws:HTTPService = (strAccion=="NUEVO" || strAccion=="COPIAR") ? ws_nuevo_registro : ws_edita_registro;
+				
+				switch(StringUtil.trim(event.result.toString())){
+					case "ok":
+						huboCambios = false;
+						loader.msgAviso("El Proyecto fue "+tipo+" correctamente.");
+						//loader.dp.hacerWS(['ciudades'],true);
+						_padreSuperGrid.buscaRespuestas();
+						cerrar();						
+						break;
+					
+					case "yaexiste":
+						loader.msgAviso("El Proyecto ya existe",2);
+						break;
+					
+					default:
+						if(loader.debug){
+							loader.msgAviso(StringUtil.trim(event.result.toString()),3);	
+						}else{
+							loader.dp.reintentarHttpService("Ocurrió un problema al realizar la operación",ws,event);
+						}
+				}
+				
+			}
+			/******** RESULT HANDLERS *********/
+			
+			
+			protected function abrirClientes(event:MouseEvent):void
+			{
+				var ventanaClientes:stClientes = new stClientes();
+				ventanaClientes._padre = this;
+				ventanaClientes.strAccion = strAccion;
+				//ventanaClientes.item = item;
+				PopUpManager.addPopUp(ventanaClientes,this, true);
+				PopUpManager.centerPopUp(ventanaClientes);
+				//var clientesComp2:clientes2componente = new clientes2componente();
+				//clientesComp2._padre = this;
+				//PopUpManager.addPopUp(vStatus, btnStatus as DisplayObject, true);
+				//PopUpManager.createPopUp(btnStatus as DisplayObject,vStatus);
+				//PopUpManager.centerPopUp(clientesComp2);
+			}
+			
+			protected function fnBtnStatus(event:MouseEvent):void
+			{
+				//var
+			}
+			
+			protected function abrirFabricantes(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				var ventanaFabricantes:stDetalleFabricante = new stDetalleFabricante();
+				ventanaFabricantes._padre = this;
+				ventanaFabricantes.ACFabricantes = ACFabricantes;
+				PopUpManager.addPopUp(ventanaFabricantes,this,true);
+				PopUpManager.centerPopUp(ventanaFabricantes);
+			}
+			
+			protected function fb_agregarBitacora(event:MouseEvent):void
+			{
+				var ventanaBitacora:stBitacora = new stBitacora();
+				ventanaBitacora._padre = this;
+				PopUpManager.addPopUp(ventanaBitacora, this, true);
+				PopUpManager.centerPopUp(ventanaBitacora);
+			}
+			
+			public function generarFabricantes ():void{
+				lblFabricantes.htmlText="";
+				var numeroFabricantes:int = 0;
+				var fabricante2:String="";
+				var porcentaje2:String="";
+				
+				if(ACFabricantes.length < 4)
+				{
+					numeroFabricantes = ACFabricantes.length;
+				}else{
+					numeroFabricantes = 4;
+				}
+				
+				for (var i:int=0;i<numeroFabricantes; i++)
+				{
+					lblFabricantes.htmlText+="<b>"+ACFabricantes[i].fabricante+"</b> - "+ACFabricantes[i].porcentaje +"%   |   ";
+				}
+			//	Alert.show(numeroFabricantes+"","numero Fabricantes");
+			}
+			
+			public function generarCostos():void{
+				txtMontoProbable.text="";
+				
+				montoProbable=0;
+				for (var i:int=0;i<ACFabricantes.length; i++)
+				{
+					montoProbable += ACFabricantes[i].monto_dlls;
+					//lblFabricantes.htmlText+="<b>"+ACFabricantes[i].fabricante+"</b> - "+ACFabricantes[i].porcentaje +"%   |   ";
+				}
+				//txtMontoProbable.text=montoProbable+"";
+				txtMontoProbable.text = Price.format(montoProbable+"");
+				
+			}
+			
+			public function seleccionaIconEstado(numero:int):Class{
+				var regresa:Class;
+				if(numero==0){
+					regresa= Iconos.LED_RED;
+				}
+				if(numero==1){
+					regresa= Iconos.LED_GREEN;
+				}
+				if(numero==2){
+					regresa= Iconos.LED_BLUE;
+				}
+				return regresa;
+			}
+			
+			public function seleccionaToolTipEstado(numero:int):String{
+				var regresa:String;
+				if(numero==0){
+					regresa= "Perdido";
+				}
+				if(numero==1){
+					regresa= "Ganado";
+				}
+				if(numero==2){
+					regresa= "Seguimiento";
+				}
+				return regresa;
+			}
+			
+			protected function btnEditarNombreEstado_clickHandler(event:MouseEvent):void
+			{
+				abrirVentanaNombreProyectoEstado();
+			}
+			
+			protected function abrirVentanaNombreProyectoEstado():void{
+				var ventanaEditarNombreEstado:stEditarNombreEstado = new stEditarNombreEstado();
+				ventanaEditarNombreEstado._padre = this;
+				ventanaEditarNombreEstado.strAccion = strAccion;
+				ventanaEditarNombreEstado.item.estado = item.estado;
+				PopUpManager.addPopUp(ventanaEditarNombreEstado,this,true);
+				PopUpManager.centerPopUp(ventanaEditarNombreEstado);
+			}
+			
+			protected function cargarFrabricantesProyecto(event:ResultEvent):void{
+				ACFabricantes = Utils.getRows(event.result.tablas,"tabla0");
+				ACFabricantes.refresh();
+				
+				//setIdInterno();
+				actualizarPorcentajes(ACFabricantes);
+				
+				generarFabricantes ();
+				generarCostos();
+			}
+			
+			public function actualizarPorcentajes(arr:ArrayCollection):void{
+				var y:int = 0;
+				var x:int = 0;
+				
+				for (var i:int=0;i<arr.length; i++)
+				{
+					y+=arr[i].monto_dlls;
+					
+				}
+				for (var j:int=0;j<arr.length; j++)
+				{
+					x = int(arr[j].monto_dlls);
+					arr[j].porcentaje = numberFormatter.format((x*100)/y);
+				}
+				
+				arr.refresh();
+			}
+			
+			protected function cargarBitacora(event:ResultEvent):void{
+				ACBitacora = Utils.getRows(event.result.tablas,"tabla0");
+				ACBitacora.refresh();
+			}
+			
+			protected function abrirVendedoresEspecialistas(event:MouseEvent):void
+			{
+				var ventanaVendedoresEspecialistas:stVendedoresEspecialistas = new stVendedoresEspecialistas();
+				ventanaVendedoresEspecialistas.ACUsuariosAsignados.source = ACUsuariosAsignados.source;
+				ventanaVendedoresEspecialistas._padre = this;
+				PopUpManager.addPopUp(ventanaVendedoresEspecialistas,this,true);
+				PopUpManager.centerPopUp(ventanaVendedoresEspecialistas)
+			}
+			
+			
+			
+			protected function ws_vendedoresAsignados_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				ACUsuariosAsignados = Utils.getRows(event.result.tablas,"tabla0");
+				ACUsuariosAsignados.refresh();
+			}
+			
+		]]>
+	</fx:Script>
+	<!--CONTENEDOR-->
+	<mx:VBox width="100%" verticalGap="10" >							
+		<mx:HBox styleName="fondoTitulos" width="100%" verticalAlign="middle">
+			<mx:Image id="imgEstado" width="32" height="32"/>
+			<mx:VBox>
+				<mx:HBox>
+					<mx:Label id="lblClaveProyect" text="Clave Proyecto:"   />
+					<mx:Label id="lblClaveProyecto" text="{item.clave_proyecto}"   fontWeight="bold"/>
+				</mx:HBox>
+				<mx:HBox>
+					<mx:Label id="lblNombreProyect" text="Nombre Proyecto:" />
+					<mx:Label id="lblNombreProyecto" text="{item.nombre_proyecto}" fontWeight="bold"/>
+				</mx:HBox>
+			</mx:VBox>
+			 
+			
+			<!--<mx:LinkButton id="btnStatus" icon="{seleccionaIconEstado(0)}" width="16" height="16" toolTip="Perdido" click="fnBtnStatus(event)"/>-->
+			<mx:LinkButton id="btnEditarNombreEstado" label="(Editar)" fontSize="8" color="Blue" click="btnEditarNombreEstado_clickHandler(event)" rollOverEffect="{btnEditarNombreEstado.setStyle('fontSize',11)}" rollOutEffect="{btnEditarNombreEstado.setStyle('fontSize',8)}"/>
+
+		</mx:HBox>
+		
+		<mx:Form width="850"  >
+			<mx:HBox width="100%">
+				<mx:FormItem label="Vendedor:" width="400" labelWidth="110">
+					<mx:HBox width="100%">
+						<mx:TextInput id="txtVendedor" name="Vendedor" text="{loader.objetoUsuario.nombreCompleto}" toolTip="{item.cliente}" change="{huboCambios=true}" width="100%" 
+									  restrict="{Utils.restringir('LETRAS,ACENTOS')}" styleName="glassPods" maxChars="250" editable="false"/>
+						<mx:LinkButton toolTip="Asignar Vendedor y/o Especialista" icon="{Iconos.ADD16}" click="abrirVendedoresEspecialistas(event)" />
+					</mx:HBox>
+				</mx:FormItem>
+				<mx:FormItem label="Cliente:" width="400" labelWidth="110">
+					<mx:HBox width="100%">
+						<mx:TextInput id="txtCliente" name="Cliente" text="{item.nombre_cliente}" toolTip="{item.cliente}" change="{huboCambios=true}" width="100%" 
+									  restrict="{Utils.restringir('LETRAS,ACENTOS')}" styleName="glassPods" maxChars="250" editable="false"/>
+						<mx:LinkButton id="btnAbrirClientes" toolTip="Agregar Cliente" icon="{Iconos.ADD16}" click="abrirClientes(event)"/>
+					</mx:HBox>
+				</mx:FormItem>
+			</mx:HBox>
+			<mx:HBox width="100%">
+				<mx:FormItem label="Fecha Alta:" width="400" labelWidth="110"><mx:DateField id="dtfFAlta" name="FAlta" change="{huboCambios=true}" width="100%" styleName="glassPods" formatString="YYYY-MM-DD" /></mx:FormItem>
+				<mx:FormItem label="Fecha Decision:" width="400" labelWidth="110"><mx:DateField id="dtfFDecision" name="FDecision" change="{huboCambios=true}" width="100%" styleName="glassPods" formatString="YYYY-MM-DD" /></mx:FormItem>
+			</mx:HBox>	
+			<mx:HBox width="100%">
+				<mx:FormItem label="Descripción:" width="808" labelWidth="110"><mx:TextArea height="50" width="100%" id="txtDescripcion" name="Descripcion" text="{item.descripcion_proyecto}" change="{huboCambios=true}" styleName="glassPods" /></mx:FormItem>
+			</mx:HBox>
+			<mx:HBox width="100%">
+				<mx:FormItem label="Fabricantes:" width="808" labelWidth="110">
+					<mx:HBox borderStyle="solid" horizontalAlign="right" id="hbFabricantes" width="100%">
+						<mx:HBox width="90%" horizontalAlign="left">
+							<mx:Label id="lblFabricantes" text=""/>
+						</mx:HBox>
+						<mx:LinkButton id="btnFabricantes" icon="{Iconos.ADD16}" click="abrirFabricantes(event)"/>
+					</mx:HBox>
+				</mx:FormItem>
+			</mx:HBox>
+			<mx:HBox width="100%">
+				<mx:FormItem label="Costo:" width="400" labelWidth="110"><mx:TextInput id="txtMontoProbable" name="Monto Total Probable"  change="{huboCambios=true}" restrict="{Utils.restringir('NUMEROS,PUNTOS,GUIONES')}" width="100%" styleName="glassPods" maxChars="250" /></mx:FormItem>
+				<mx:FormItem label="% Proyectado:" width="400" labelWidth="110"><mx:TextInput id="txtPorcentajeProyectado" name="Porcentaje Proyectado" text="{item.porcentaje_proyectado}" change="{huboCambios=true}" restrict="{Utils.restringir('NUMEROS,PUNTOS,GUIONES')}" width="100%" styleName="glassPods" maxChars="250" /></mx:FormItem>
+			</mx:HBox>
+
+			<mx:VBox width="100%">
+				<mx:FormItem label="Bitacora:" width="808" labelWidth="110">
+					<mx:DataGrid columns="{columnasGrid}" width="100%" height="150" dataProvider="{ACBitacora}"/>
+				</mx:FormItem>
+				<mx:VBox width="100%" horizontalAlign="right">
+					<mx:LinkButton id="btnAgregarBitacora" label="Agregar a Bitacora" icon="{Iconos.ADD16}" fontWeight="bold" click="fb_agregarBitacora(event)"/>
+				</mx:VBox>
+			</mx:VBox>
+		</mx:Form>
+	</mx:VBox>
+	
+	<!--CONTENEDOR-->
+	<fx:Declarations>
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="fecha" headerText="Fecha" width="100" />
+			<mx:DataGridColumn dataField="descripcion" headerText="Descripcion" width="400" />	
+		</fx:Array>
+		
+		<s:ArrayCollection id="ACBitacora">
+			<!--<fx:Object fecha="20/02/2012" descripcion="Mensaje Guardado"/>-->
+		</s:ArrayCollection>
+		
+	<!--	<s:ArrayCollection id="ACFabricantes">
+			<fx:Object fabricante="Rockwell" SBU="SUB1" monto="1000000" porcentaje="30" />
+			<fx:Object fabricante="Belden" SBU="SUB2" monto="2000000" porcentaje="30" />
+			<fx:Object fabricante="Panduit" SBU="SUB3" monto="3000000" porcentaje="30" />
+			<fx:Object fabricante="Hauwei" SBU="SUB4" monto="7000000" porcentaje="10" />
+		</s:ArrayCollection>
+		-->
+		<!--VALIDADORES-->	
+		
+		<!--VALIDADORE	-->
+		
+		<!--HTTP SERVICES-->	
+		<mx:HTTPService showBusyCursor="true" id="ws_nuevo_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request>
+				<opcion>CAPTURA_PROYECTO</opcion>
+				<!--<clave_cliente>{item.clave_cliente}</clave_cliente>-->
+				<clave_cliente>{claveCliente}</clave_cliente>
+				<nombre_proyecto>{strNombreProyecto}</nombre_proyecto>
+				<clave_proyecto>{generarClaveProyecto()}</clave_proyecto>
+				<monto_total_probable>{montoProbable}</monto_total_probable>
+				<porcentaje_proyectado>{txtPorcentajeProyectado.text}</porcentaje_proyectado>
+				<fecha_decision>{dtfFDecision.text}</fecha_decision>
+				<clave_usuario>{loader.objetoUsuario.id}</clave_usuario>
+				<descripcion_proyecto>{txtDescripcion.text}</descripcion_proyecto>
+				<fecha_creacion>{dtfFAlta.text}</fecha_creacion>
+				<estado>{estado}</estado>
+				<bitacora>{strBitacoraSerializado}</bitacora>
+				<serializadoAgregados>{strAsignados}</serializadoAgregados>
+				<serializadoRemovidos>{strBorrados}</serializadoRemovidos>
+				<serializadoFabricantes>{strFabricantes}</serializadoFabricantes>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_edita_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request>
+				<opcion>EDITA_PROYECTO</opcion>
+				<idproyecto>{item.idproyecto}</idproyecto>
+				<idcliente>{item.idcliente}</idcliente>
+				<nombre_proyecto>{item.nombre_proyecto}</nombre_proyecto>
+				<monto_total_probable>{montoProbable}</monto_total_probable>
+				<porcentaje_proyectado>{txtPorcentajeProyectado.text}</porcentaje_proyectado>
+				<fecha_decision>{dtfFDecision.text}</fecha_decision>
+				<idusuario>{loader.objetoUsuario.id}</idusuario>
+				<descripcion_proyecto>{txtDescripcion.text}</descripcion_proyecto>
+				<fecha_creacion>{dtfFAlta.text}</fecha_creacion>
+				<estado>{estado}</estado>
+				<bitacora>{strBitacoraSerializado}</bitacora>
+				<serializadoAgregados>{strAsignados}</serializadoAgregados>
+				<serializadoRemovidos>{strBorrados}</serializadoRemovidos>
+				<fabricantesserializadoAgregados>{strFabricantesAgregar}</fabricantesserializadoAgregados>
+				<fabricantesserializadoRemovidos>{strFabricantesBorrar}</fabricantesserializadoRemovidos>
+			</mx:request>
+		</mx:HTTPService>
+
+		<mx:HTTPService showBusyCursor="true" id="ws_traerFabricantesProyecto" method="POST" resultFormat="object" requestTimeout="30"
+						fault="loader.dp.faultHandler(event)" result="{cargarFrabricantesProyecto(event);loader.dp.removeLoader()}"
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_fabricantes.php">
+			<mx:request>
+				<opcion>TRAER_FABRICANTES_PROYECTO</opcion>
+				<idproyecto>{item.idproyecto}</idproyecto>
+				<idtipousuario>{loader.idtipousuario}</idtipousuario>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_traerBitacora" method="POST" resultFormat="object" requestTimeout="30"
+						fault="loader.dp.faultHandler(event)" result="{cargarBitacora(event);loader.dp.removeLoader()}"
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request>
+				<opcion>TRAER_BITACORA</opcion>
+				<idproyecto>{item.idproyecto}</idproyecto>
+				<idtipousuario>{loader.idtipousuario}</idtipousuario>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_vendedoresAsignados" method="POST" resultFormat="object" requestTimeout="30"
+						fault="loader.dp.faultHandler(event)" result="ws_vendedoresAsignados_resultHandler(event)"
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request>
+				<opcion>GET_VENDEDORES_ASIGNADOS</opcion>
+				<idproyecto>{item.idproyecto}</idproyecto>
+			</mx:request>
+		</mx:HTTPService>
+
+		<!--HTTP SERVICES-->
+		
+		<!--FORMATERS-->
+		<s:CurrencyFormatter id="Price" currencySymbol="$" useCurrencySymbol="true" negativeCurrencyFormat="0" positiveCurrencyFormat="0"
+							 errorText="Error de captura"/>
+		
+		<mx:NumberFormatter id="numberFormatter" precision="2" rounding="nearest" />
+
+	</fx:Declarations>
+</mx:TitleWindow>

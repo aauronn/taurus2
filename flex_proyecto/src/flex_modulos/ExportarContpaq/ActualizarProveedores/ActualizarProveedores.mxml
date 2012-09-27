@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" 
+		  width="100%" height="100%" xmlns:SuperGrid="components.SuperGrid.*"
+		  creationComplete="init(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[			
+			import flex_modulos.ExportarContpaq.ActualizarProveedores.comps.stActualizarProveedores;
+			
+			import mx.events.FlexEvent;
+			
+			public function getCatalogoSt():stActualizarProveedores{
+				return new stActualizarProveedores;
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				loader.dp.revisaPermisosGrid(gridResultados,"actprovedores_consultar","actprovedores_crear","actprovedores_editar","actprovedores_borrar","actprovedores_copiar","actprovedores_imprimir");
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Catálogo Proveedores" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >		
+		<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Catálogo Proveedores" 
+							 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerProveedores}" _padreCatalogo="{this}"
+							 isCatalogo="true" _wsBorrar="{ws_borrarProveedores}"  _idtabla="clave_proveedor" />		
+	</mx:Panel>
+	
+	<fx:Declarations>
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="clave_proveedor" headerText="Clave Proveedor" width="30"/>
+			<mx:DataGridColumn dataField="nombre" headerText="Nombre" width="100"/>
+			<mx:DataGridColumn dataField="direccion" headerText="Descripcción" width="100"/>
+			<mx:DataGridColumn dataField="rfc" headerText="rfc" width="30"/>
+		</fx:Array>
+		
+		<!--HTTP SERVICES-->
+		<mx:HTTPService id="ws_traerProveedores" url="{loader.strHostUrl}ws_actualizarproveedores.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarProveedores" url="{loader.strHostUrl}ws_actualizarproveedores.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+			</mx:request>
+		</mx:HTTPService>
+	</fx:Declarations>
+
+</s:Module>

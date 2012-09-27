@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" 
+		  xmlns:SuperGrid="components.SuperGrid.*"
+		  creationComplete="init(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import flex_modulos.catalogos.Clientes2.comps.stClientes2;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			
+			
+			
+			public function getCatalogoSt():stClientes2{
+				return new stClientes2;
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				//Alert.show("entre");
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Catálogo de Articulos" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >		
+		
+		<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Catálogo de Articulos"
+							 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerClientes}" _padreCatalogo="{this}"
+							 isCatalogo="true" _wsBorrar="{ws_borrarClientes}"  _idtabla="codigo_articulo"  searchOnInit="false" />		
+	</mx:Panel>
+	
+	
+	
+	
+	<fx:Declarations>
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="codigo_articulo" headerText="Codigo Articulo" width="30"/>
+			<mx:DataGridColumn dataField="descripcion" headerText="Descripcion" width="200"/>
+			<mx:DataGridColumn dataField="moneda" headerText="Moneda" width="30"/>
+			<mx:DataGridColumn dataField="precio_lista" headerText="Precio Lista" width="30">
+				<mx:itemRenderer>
+					<fx:Component>
+						<mx:GridItem>
+							<mx:VBox width="100%" height="100%" verticalAlign="middle" horizontalAlign="center">
+								<s:Label text="$ {data.precio_lista}"/>
+							</mx:VBox>
+						</mx:GridItem>
+					</fx:Component>
+				</mx:itemRenderer>
+			</mx:DataGridColumn>
+			<mx:DataGridColumn dataField="familia" headerText="Familia" visible="false"/>
+			<mx:DataGridColumn dataField="sub_familia" headerText="SubFamilia" visible="false"/>
+		</fx:Array>
+		
+		<mx:HTTPService id="ws_traerClientes" url="{loader.strHostUrl}ws_articulos.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarClientes" url="{loader.strHostUrl}ws_articulos.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+	</fx:Declarations>
+</s:Module>

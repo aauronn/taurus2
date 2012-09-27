@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" xmlns:SuperGrid="components.SuperGrid.*"
+		  creationComplete="init(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import flex_modulos.catalogos.Clientes2.comps.stClientes2;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			
+			
+			
+			public function getCatalogoSt():stClientes2{
+				return new stClientes2;
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				//Alert.show("entre");
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Catálogo de Clientes" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >		
+		<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Catálogo de Clientes" 
+							 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerClientes}" _padreCatalogo="{this}"
+							 isCatalogo="true" _wsBorrar="{ws_borrarClientes}"  _idtabla="idcliente" />		
+	</mx:Panel>
+	
+	
+	
+	
+	<fx:Declarations>
+		
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="idcliente" headerText="Clave Cliente" width="100" />
+			<mx:DataGridColumn dataField="nombre" headerText="Nombre" width="400" />	
+			<mx:DataGridColumn dataField="direccion_completa" headerText="Direccion" width="400" />
+			<!--<mx:DataGridColumn dataField="nombre_zona" headerText="Nombre de la Zona" width="200" />-->		
+		</fx:Array>	
+		
+		<mx:HTTPService id="ws_traerClientes" url="{loader.strHostUrl}ws_clientes2.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarClientes" url="{loader.strHostUrl}ws_clientes2.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+	
+	</fx:Declarations>
+</s:Module>

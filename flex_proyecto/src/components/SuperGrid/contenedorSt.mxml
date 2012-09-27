@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actionscripts:SuperPanel xmlns:actionscripts="actionscripts.*" xmlns:mx="http://www.adobe.com/2006/mxml" creationComplete="init()" 
+	close="{cerrar()}" alpha="1.0" title="ContenedorSt"  
+	allowClose="true" allowDrag="true" allowResize="true" allowMaximize="true"
+	keyDown="if(event.keyCode == Keyboard.ESCAPE)cerrar()" 
+	backgroundColor="#FFFFFF" cornerRadius="9" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" 
+	styleName="catalogPanel" backgroundAlpha="1.0" xmlns:comps="modulos.comps.*">
+	
+	<mx:Script>
+        <![CDATA[
+        	
+        	import mx.containers.TitleWindow;
+        	import mx.core.UIComponent;
+        	import actionscripts.Serializer;
+        	import mx.controls.DataGrid;
+        	import mx.events.CloseEvent;
+        	import mx.utils.StringUtil;
+        	import mx.utils.ObjectUtil;
+        	import mx.utils.ObjectProxy;
+        	import mx.collections.ArrayCollection;
+        	import actionscripts.Utils;
+        	import mx.rpc.events.ResultEvent;
+        	import mx.controls.Alert;
+        	import mx.managers.PopUpManager;
+        	import actionscripts.Iconos;
+        	
+	    	
+	    	
+	    	[Bindable] public var item:Object = new Object();	
+	    	[Bindable] public var strAccion:String="";
+	    	[Bindable] public var huboCambios:Boolean=false;
+	    	[Bindable] public var _padreSuperGrid:SuperGrid;
+			[Bindable] public var stEdicion:* = null;
+			
+	    	
+	    	
+	    	 public function init():void{   
+	    	 	var o:*;
+	    	 	try{
+	    	 		o = _padreSuperGrid._padreCatalogo.getCatalogoSt(strAccion,item);	
+	    	 		stEdicion = _padreSuperGrid._padreCatalogo.getCatalogoSt(strAccion,item);  	 		
+	    	 	}catch(ex:Error){
+	    	 		try{
+		    	 		o = _padreSuperGrid._padreCatalogo.getCatalogoSt();	 
+		    	 		stEdicion = _padreSuperGrid._padreCatalogo.getCatalogoSt();  	   	 		
+		    	 	}catch(ex:Error){
+		    	 		loader.msgAviso("Error->contenedorST:\n\nEl catalogo padre no contiene la función getCatalogoSt()",3);	
+		    	 		cerrar();
+		    	 		return;
+		    	 	}
+	    	 	}         	
+	    	 	
+	    	 	
+	    	 	try{
+	    	 		if(strAccion==""){
+	    	 			loader.msgAviso("ContenedorSt: No se recibió la operación a realizar, consulte al Administrador",3);
+	    	 			cerrar();
+	    	 			return;
+	    	 		}	    	 		
+	    	 		if(strAccion!="NUEVO" && strAccion!="EDITAR" && strAccion!="COPIAR"){
+	    	 			loader.msgAviso("ContenedorSt: Error al recibir la operación a realizar",3);
+	    	 			cerrar();
+	    	 			return;
+	    	 		}
+	    	 		
+	    	 		if(strAccion=="EDITAR" || strAccion=="COPIAR"){	    	 			
+	    	 			if(item==null){
+	    	 				loader.msgAviso("No se recibió el objeto a editar",3);
+	    	 				cerrar();
+	    	 				return;
+	    	 			}		    	 			
+	    	 			if(strAccion=="EDITAR"){		    	 			
+		    	 			var dg:DataGrid = _padreSuperGrid.gridResultados as DataGrid;
+							if(dg.dataProvider){
+								lblRegs.text = "("+(dg.selectedIndex+1)+"/"+(dg.dataProvider as ArrayCollection).length+")";
+							}
+	    	 			}
+	    	 		} 
+	    	 		
+	    	 		
+	    	 		if(!_padreSuperGrid.showContenedorStNavigation || strAccion!='EDITAR'){
+	    	 			hbxNavigation.visible = false;
+	    	 			hbxNavigation.includeInLayout = false;	
+	    	 		}
+	    	 		
+	    	 		if(!_padreSuperGrid.showContenedorStBtnGuardar){
+	    	 			btnGuardar.visible = false;
+	    	 			btnGuardar.includeInLayout = false;
+	    	 		}
+	    	 		
+	    	 		
+	    	 		
+	    	 		//stEdicion = _padreSuperGrid._padreCatalogo.getCatalogoSt(strAccion,item);
+	    	 		stEdicion.strAccion = strAccion;
+	    	 		stEdicion.item      = item;
+	    	 		stEdicion._padreContenedor = this;	    	 		   
+	    	 		stEdicion._padreSuperGrid = _padreSuperGrid;
+	    	 		contenedor.addChild(stEdicion);
+	    	 		
+	    	 		this.validateNow();
+	    	 	}catch(e:Error){
+	    	 		loader.msgAviso("Error contenedorSt->init",3,e);
+	    	 		btnGuardar.enabled = false;
+	    	 	}
+            }
+            
+            public function navigateRegistries(value:Boolean):void{
+            	hbxNavigation.visible = value;
+	    	 	hbxNavigation.includeInLayout = value;
+            }
+	    	
+	    	
+	    	
+	    	/********* CERRAR *********/
+	    	public function cerrar():void{
+	    		if(strAccion=="EDITAR" && stEdicion && stEdicion.huboCambios){
+	    			loader.msgReintentar("Realizó cambios en el contenido sin guardar los cambios.",verificarOpcion,"¿Seguro que desea cerrar la ventana?");	
+	    		}else{
+	    			PopUpManager.removePopUp(this);
+	    		} 
+         	}     
+         	
+         	private function verificarOpcion(event:CloseEvent):void{
+				if (event.detail == Alert.YES){
+					stEdicion.huboCambios = false;
+					cerrar();	
+				}											
+			}
+         	/********* CERRAR *********/
+         	
+			
+			
+			/********* ATRAS / SIGUIENTE ********/
+			private function verificarOpcionAtras(event:CloseEvent):void{
+				if (event.detail == Alert.YES){
+					stEdicion.huboCambios = false;
+					atras();	
+				}											
+			}
+			
+			private function atras():void{
+				var dg:DataGrid = _padreSuperGrid.gridResultados as DataGrid;
+				if(dg.dataProvider && dg.selectedIndex>0 ){
+					if(_padreSuperGrid.showContenedorStBtnGuardar && (strAccion=="EDITAR" && stEdicion.huboCambios)){
+						loader.msgReintentar("Realizó cambios en el contenido sin guardar los cambios.",verificarOpcionAtras,"¿Seguro que desea cambiar de registro?");						
+					}else{
+						dg.selectedIndex = dg.selectedIndex - 1;
+						item = dg.selectedItem;
+						lblRegs.text = "("+(dg.selectedIndex+1)+"/"+(dg.dataProvider as ArrayCollection).length+")";
+						cambiaRegistro();
+					}
+				}
+			}
+			
+			private function verificarOpcionSiguiente(event:CloseEvent):void{
+				if (event.detail == Alert.YES){
+					stEdicion.huboCambios = false;
+					siguiente();	
+				}											
+			}
+			
+			private function siguiente():void{
+				var dg:DataGrid = _padreSuperGrid.gridResultados as DataGrid;
+				if(dg.dataProvider &&  (dg.selectedIndex + 1) < (dg.dataProvider as ArrayCollection).length ){
+					if(_padreSuperGrid.showContenedorStBtnGuardar && (strAccion=="EDITAR" && stEdicion.huboCambios)){
+						loader.msgReintentar("Realizó cambios en el contenido sin guardar los cambios.",verificarOpcionSiguiente,"¿Seguro que desea cambiar de registro?");
+					}else{					
+						dg.selectedIndex = dg.selectedIndex + 1;
+						item = dg.selectedItem;
+						lblRegs.text = "("+(dg.selectedIndex+1)+"/"+(dg.dataProvider as ArrayCollection).length+")";
+						cambiaRegistro();
+					}
+				}
+			}
+			/********* ATRAS / SIGUIENTE ********/
+			
+			
+			/********* Cambia Registro *********/
+			private function cambiaRegistro():void{
+	    		stEdicion.item = item;
+	    		stEdicion.cambiaRegistro();	
+	    	}
+        ]]>
+    </mx:Script>	
+        
+	
+	<!-- CONTENEDOR -->
+	<mx:VBox id="contenedor" width="100%" height="100%">
+		
+	</mx:VBox>
+	<!-- CONTENEDOR -->
+	
+	
+	
+	
+	
+	<mx:HRule width="100%" />
+	
+	<mx:HBox width="100%">
+		<mx:HBox id="hbxNavigation" width="100%" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0">
+			<mx:Button id="btn_atraspags" toolTip="Anterior" label="&lt;"  height="17" fontWeight="normal" width="30" click="{atras()}" doubleClickEnabled="false" />
+			<mx:Button  id="btn_adelantepags" toolTip="Siguiente" label="&gt;" height="17" fontWeight="normal" width="30" click="{siguiente()}" doubleClickEnabled="false" />
+			<mx:Label id="lblRegs" />
+		</mx:HBox>
+		
+		<mx:Spacer width="100%" />
+		
+		<mx:LinkButton id="btnGuardar" label="Guardar" icon="{Iconos.FILESAVE16}" click="{stEdicion.validar()}" doubleClickEnabled="false" />
+		<mx:LinkButton id="btnCancelar" label="Cancelar" icon="{Iconos.REMOVE16}" click="{cerrar()}" doubleClickEnabled="false" />
+	</mx:HBox>
+		
+</actionscripts:SuperPanel>

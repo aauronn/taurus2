@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" visible="true" showCloseButton="false" title="SUBIENDO ARCHIVO" styleName="catalogPanel">
+    <mx:Script>
+        <![CDATA[
+
+          import mx.managers.PopUpManager;
+          import mx.events.CloseEvent;
+           
+          public var clase:*;
+           
+          public function cerrarventana(event : CloseEvent) : void {
+             PopUpManager.removePopUp(this);
+          }
+          
+          public function progressHandler(event:ProgressEvent):void {
+	        uploadProgress.setProgress(event.bytesLoaded, event.bytesTotal);
+		} 
+		
+		
+        ]]>
+        
+    </mx:Script>
+    
+    	<mx:VBox verticalAlign="middle" horizontalAlign="center">
+		<mx:ProgressBar id="uploadProgress" label="" mode="manual" width="150"  height="20"/>
+		<mx:Button  id="Btncerrar" click="clase.cancelar(event)"  label="Cancelar"/>
+		
+	</mx:VBox>	
+</mx:TitleWindow>

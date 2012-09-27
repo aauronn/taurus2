@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:mx="library://ns.adobe.com/flex/mx"
+				width="600" height="400" close="titlewindow1_closeHandler(event)"
+				creationComplete="init(event)" layout="vertical" showCloseButton="true"
+				title="Asociar/Asociados a Proyecto">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Iconos;
+			import actionscripts.Serializer;
+			import actionscripts.Utils;
+			
+			import flex_modulos.Proyectos.Proyectos;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.controls.List;
+			import mx.core.DragSource;
+			import mx.events.CloseEvent;
+			import mx.events.CollectionEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.DragEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.DragManager;
+			import mx.managers.PopUpManager;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padre:stProyectos;
+			
+			[Bindable] public var ACVendedores:ArrayCollection = new ArrayCollection();
+			[Bindable] public var ACAsociados:ArrayCollection = new ArrayCollection();
+			
+			[Bindable] public var ACUsuariosOriginales:ArrayCollection = new ArrayCollection();
+			[Bindable] public var ACUsuariosAsignados:ArrayCollection = new ArrayCollection();
+			[Bindable] public var ACUsuariosAgregados:ArrayCollection = new ArrayCollection();
+			[Bindable] public var ACUsuariosRemovidos:ArrayCollection = new ArrayCollection();
+			
+			
+			[Bindable] private var arr1_1:ArrayCollection = new ArrayCollection();
+			[Bindable] private var arr2_1:ArrayCollection = new ArrayCollection();
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+				//	_padreContenedor.allowMaximize=false;
+				//	_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					//ACUsuariosAsignados.addEventListener(CollectionEvent.COLLECTION_CHANGE,actualizarAsignados);
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					loader.dp.hacerWS(['vendedoresproyecto']);
+					
+					ACUsuariosOriginales.source = Utils.clone(ACUsuariosAsignados.source);
+					
+					// Quitamos Loader
+					//loader.dp.removeLoader();
+					
+					if(strAccion=="NUEVO"){
+						//loader.dp.hacerWS(['vendedoresproyecto','especialistasproyecto']);
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						//loader.dp.hacerWS(['ciudades']);
+						
+					}	
+					//Alert.show(generarClaveProyecto());
+				}catch(ex:Error){
+					loader.msgAviso("stciudades->init() ",3,ex);
+				}
+			}
+			
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//ACUsuarios.source = Utils.clone(loader.dp.arrVendedoresProyecto.source);
+					//ACUsuarios.refresh();
+					
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = Utils.clone(loader.dp.arrVendedoresProyecto.source);
+					arr1.refresh();
+					
+					var arr2:Array = new Array();
+					
+					var arr3:ArrayCollection = new ArrayCollection();
+					arr3.source = Utils.clone(ACUsuariosAsignados.source);
+					arr3.refresh();
+					
+					for (var t:int=0; t<loader.dp.arrVendedoresProyecto.source.length; t++){
+						//var flaq:Boolean=false;
+						
+						//if (flaq==true)
+						for(var i:int=0; i<arr1.length; i++){
+							for (var j:int=0; j<arr3.length; j++){
+								if(arr1[i].idusuario == arr3[j].idusuario){
+									arr1.removeItemAt(i);
+									arr3.removeItemAt(j);
+								//	arr2.push(i);
+									break;
+								}
+							}
+							
+						}
+						
+					}
+					//Alert.show(Utils.print_r(arr2));	
+					for(var r:int=0; r<arr2.length; r++){
+						arr1.removeItemAt(int(arr2[r]));
+					//	arr1.r
+					}
+					
+					arr1.refresh();
+					
+					listVendedores.dataProvider = arr1.source;
+					listVendedores.labelField = "nombre_completo";
+					
+					listAsociados.dataProvider = ACUsuariosAsignados.source;
+					listAsociados.labelField = "nombre_completo";
+					
+					
+					//listAsociados.addEventListener(Event.ADDED,agregarDato);
+					//listAsociados.addEventListener(Event.REMOVED,quitarDato);
+					listAsociados.addEventListener(DragEvent.DRAG_DROP,agregarDato);
+					listVendedores.addEventListener(DragEvent.DRAG_DROP,quitarDato);
+					
+					//Alert.show(ACUsuariosAsignados.length.toString(),"Usuarios Asignados");
+					
+					/*
+					//	VENDEDORES
+					var arr1:ArrayCollection = new ArrayCollection();				
+					arr1.source = Utils.clone(loader.dp.arrVendedoresProyecto.source);
+					arr1.refresh();
+					
+					for(var i:int=0; i<arr1.length; i++){
+						if(loader.objetoUsuario.id==arr1[i].idusuario){
+							arr1.removeItemAt(i);
+							Alert.show("Es Igual");
+						}
+						//Alert.show("Entre");
+					}
+					arr1.refresh();
+					//arr1.re
+					listVendedores.dataProvider = arr1;
+					listVendedores.labelField = "nombre_completo";
+					
+					//	ASOCIADOS
+					var arr2:ArrayCollection = new ArrayCollection();				
+					//arr2.source = Utils.clone(loader.dp.arrVendedoresProyecto.source);
+					arr2.refresh();
+					listAsociados.dataProvider = arr2;
+					listAsociados.labelField = "nombre_completo";
+					*/
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						//cambiaRegistro();
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				cerrarVentana();
+			}
+			
+			protected function cerrarVentana():void{
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function btnGuardar_clickHandler(event:MouseEvent):void
+			{
+				//_padre.ACUsuariosAsignados.removeAll();
+				_padre.ACUsuariosAsignados.source = listAsociados.dataProvider.source;
+				_padre.strAsignados = Serializer.serialize(ACUsuariosAgregados.source);
+				_padre.strBorrados =  Serializer.serialize(ACUsuariosRemovidos.source);
+				loader.msgAviso("Usuarios Asociados Correctamente",1);
+				cerrarVentana();
+			}
+			
+			private function actualizarAsignados(event:CollectionEvent):void {
+				var i:uint = 0;
+				switch (event.kind) {
+					case CollectionEventKind.ADD:
+						for (i = 0; i < event.items.length; i++) {
+							//strAsignados = event.items[i].idusuario;
+					//		ACUsuariosAgregados.addItem(event.items[i]);
+							//Alert.show();
+							//updateReservationBox(Reservation(event.items[i]));
+					//		Alert.show("Usuario Agregado: -->"+event.items[i].idusuario);
+						}
+						break;
+					
+					case CollectionEventKind.REMOVE:
+						for (i = 0; i < event.items.length; i++) {
+							//removeReservationBox(Reservation(event.items[i]));
+					//		ACUsuariosRemovidos.addItem(event.items[i].idusuario);
+					//		Alert.show(event.items[i].idusuario);
+						}
+						break;
+					
+					case CollectionEventKind.UPDATE:
+						for (i = 0; i < event.items.length; i++) {
+							
+						}
+						break;
+					
+					case CollectionEventKind.RESET:
+						//refreshReservations();
+						break;
+				}
+			}
+			
+			public function agregarDato(event:DragEvent):void{
+				var usuario:Object = List(event.dragInitiator).selectedItem;
+				var contador:int = 0;
+				for (var i:int=0; i<ACUsuariosOriginales.length;i++){
+					if(ACUsuariosOriginales[i].idusuario==usuario.idusuario){
+						contador++;
+					}
+				}
+				
+				if (contador!=0){
+					for (var j:int=0; j<ACUsuariosRemovidos.length;j++){
+						if (ACUsuariosRemovidos[j].idusuario==usuario.idusuario){
+							ACUsuariosRemovidos.removeItemAt(j);
+							ACUsuariosAgregados.addItem(usuario);
+						}else{
+							
+						}
+					}
+				}else{
+					ACUsuariosAgregados.addItem(usuario);
+				}
+				//Alert.show(usuario.idusuario); 
+			}
+			
+			private function quitarDato(event:DragEvent):void{
+				var usuario:Object = List(event.dragInitiator).selectedItem;
+				//Alert.show(usuario.idusuario); 
+				for (var i:int=0; i<ACUsuariosOriginales.length;i++){
+					if(ACUsuariosOriginales[i].idusuario==usuario.idusuario){
+						ACUsuariosRemovidos.addItem(usuario);
+					}
+				}
+				for (var j:int=0; j<ACUsuariosAgregados.length;j++){
+					if (ACUsuariosAgregados[j].idusuario==usuario.idusuario){
+						ACUsuariosAgregados.removeItemAt(j);
+					}
+				}
+			}
+			
+			protected function linkbutton1_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				Alert.show(Utils.print_r(ACUsuariosAgregados));
+			}
+			
+			protected function linkbutton2_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				Alert.show(Utils.print_r(ACUsuariosRemovidos));
+			}
+			
+			protected function linkbutton3_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				Alert.show(Utils.print_r(ACUsuariosAsignados));
+				Alert.show(Utils.print_r(ACUsuariosOriginales),"Originales");
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<mx:HBox width="100%" height="100%" paddingBottom="5" paddingLeft="5" paddingRight="5"
+			 paddingTop="5">
+		<mx:VBox width="100%" height="100%">
+			<mx:Label id="lblPorAsociar" fontWeight="bold" text="Usuarios Por Asociar"/>
+			<mx:HRule width="100%"/>
+			<mx:VBox id="vBoxListVendedores" width="100%" height="100%" label="Vendedores"
+					 fontWeight="bold">
+				<mx:List id="listVendedores" width="100%" height="100%" dragEnabled="true"
+						 dragMoveEnabled="true" dropEnabled="true" fontWeight="normal"> </mx:List>
+			</mx:VBox>
+		</mx:VBox>
+		<mx:VRule height="100%"/>
+		<mx:VBox width="100%" height="100%">
+			<mx:Label id="lblAsociados" fontWeight="bold" text="Usuarios Asociados"/>
+			<mx:HRule width="100%"/>
+			<mx:List id="listAsociados" width="100%" height="100%" dragEnabled="true"
+					 dragMoveEnabled="true" dropEnabled="true"></mx:List>
+		</mx:VBox>
+	</mx:HBox>
+	<mx:HRule width="100%"/>
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:LinkButton id="btnGuardar" label="Guardar" click="btnGuardar_clickHandler(event)"
+					   fontWeight="bold" icon="{Iconos.FILESAVE16}"/>
+		<!--
+		<mx:LinkButton label="agregados" click="linkbutton1_clickHandler(event)"/>
+		<mx:LinkButton label="removidos" click="linkbutton2_clickHandler(event)"/>
+		<mx:LinkButton label="acAsignados" click="linkbutton3_clickHandler(event)"/>
+		-->
+	</mx:HBox>
+	
+	<fx:Declarations>
+
+		
+	</fx:Declarations>
+</mx:TitleWindow>

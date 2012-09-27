@@ -1,0 +1,192 @@
+
+	/*
+	ALTER FUNCTION "DBA"."f_buro_credito_2"(IN @fecha varchar(10), IN @li_clave_cliente varchar(10), IN @li_max INTEGER /* IN fecha date [DEFAULT default_value], ... */ )
+/*RETURNS INTEGER
+DETERMINISTIC
+BEGIN
+	DECLARE @return_name decimal(14,4);
+	DECLARE @saldo_vencido decimal(14,4);
+    DECLARE @saldo_vencido2 decimal(14,4);
+	DECLARE @max INTEGER;
+    //DECLARE @clave_cliente VARCHAR(10)
+	
+	DECLARE ClienteBuro DYNAMIC SCROLL CURSOR FOR 
+    SELECT sum(saldo_acumulado) as saldo_vencido, max 
+	//	INTO @saldo_vencido, @max
+		from (SELECT ventas.clientes.clave_cliente AS clave_cliente,    
+       		f_dias_vencimiento_buro_credito( datediff(day, ( 
+				ventas.enc_facturas.fecha +  ventas.enc_facturas.plazo) ,
+				@fecha) ) as max ,
+         	ventas.enc_facturas.moneda AS moneda,   
+         	//to_money(
+                sum(round(f_conv_moneda(ventas.enc_facturas.saldo,ventas.enc_facturas.moneda, ventas.enc_facturas.tipo_cambio, 'MN'),2))
+              //      ) 
+                as saldo_acumulado ,   
+         	count(ventas.enc_facturas.num_docto) AS num_docto,   
+         	UCASE( ventas.clientes.nombre) AS nombre,   
+         	(ventas.clientes.direccion_1 ||' '||ventas.clientes.direccion_2) AS direccion_completa,    
+         	UCASE(ventas.ciudades.cve_estado_sepomex) AS cve_estado_sepomex,   
+         	UCASE(ventas.ciudades.cve_pais_sepomex) AS cve_pais_sepomex,   
+         	UCASE(ventas.clientes.rfc) AS rfc,
+               	  ventas.clientes.cp  AS cp,
+         	UCASE(ventas.ciudades.ciudad) AS ciudad,
+         	UCASE( ventas.ciudades.estado) AS estado
+            ,(SELECT FIRST l.fecha FROM enc_facturas l WHERE l.clave_cliente=ventas.clientes.clave_cliente ORDER BY l.fecha ASC ) AS fecha_apertura 
+            ,(SELECT FIRST y.fecha AS fecha_pago FROM enc_facturas x INNER JOIN pagos_cxc y
+                ON x.num_docto=y.num_docto WHERE x.clave_cliente=ventas.clientes.clave_cliente AND x.clave_bodega=y.clave_bodega ORDER BY fecha_pago DESC) AS fecha_ultimo_pago  
+            ,(SELECT FIRST m.fecha FROM enc_facturas m WHERE m.clave_cliente=ventas.clientes.clave_cliente ORDER BY m.fecha DESC) AS fecha_ultima_compra
+            ,ventas.clientes.limite_credito
+            ,ventas.clientes.plazo
+            //,(SELECT sum from)
+    	FROM ventas.clientes,   
+        	 ventas.enc_facturas,   
+         	 ventas.ciudades
+   		WHERE ( ventas.enc_facturas.clave_cliente = ventas.clientes.clave_cliente ) and  
+         	( ventas.clientes.clave_ciudad = ventas.ciudades.clave_ciudad ) and  
+         	( ( ventas.enc_facturas.fecha < @fecha ) AND  
+         	( ventas.enc_facturas.saldo > 0 ) )   and ventas.enc_facturas.clave_cliente 
+		IN (SELECT clave_cliente FROM temp_clientes_buro)
+		GROUP BY ventas.clientes.clave_cliente,   
+        	ventas.enc_facturas.moneda,   
+                               max,
+         	ventas.ciudades.cve_estado_sepomex,   
+         	ventas.ciudades.cve_pais_sepomex,   
+         	ventas.clientes.nombre,   
+         	direccion_completa,
+         	ventas.clientes.rfc  , ventas.clientes.cp ,
+         	ventas.ciudades.ciudad,ventas.ciudades.estado
+            ,ventas.clientes.limite_credito
+            ,ventas.clientes.plazo
+         ORDER BY ventas.clientes.clave_cliente ASC,   
+         	ventas.enc_facturas.moneda ASC,   
+                                max ASC 
+) as tt where clave_cliente=@li_clave_cliente AND max=@li_max
+    GROUP BY max
+        //,tipo_cambio
+    ORDER BY max;
+	set @saldo_vencido2=0;
+    OPEN ClienteBuro;
+    FETCH NEXT ClienteBuro INTO @saldo_vencido, @max;
+    while @@SqlStatus=0 loop
+
+        if (@max = 0) then
+    		set @return_name = 2;
+            //set @return_name = 1;
+    	else
+            set @saldo_vencido2 = @saldo_vencido;//+@saldo_vencido2;
+    	end if;
+        set @return_name = @saldo_vencido2;
+ //set @return_name = 2+5;
+    FETCH NEXT ClienteBuro INTO @saldo_vencido, @max;
+    end loop;
+    CLOSE ClienteBuro;
+
+	RETURN @return_name;
+END
+	*/
+
+	/*
+	//select f_buro_credito_2('2011-08-20', 'A002')
+//select f_Anno_fiscal_Rockwell(08, 2011)
+
+SELECT ventas.clientes.clave_cliente AS clave_cliente,  
+            //f_conv_moneda(
+                f_buro_credito_2('2011-09-20', ventas.clientes.clave_cliente, f_dias_vencimiento_buro_credito( datediff(day, (ventas.enc_facturas.fecha +  ventas.enc_facturas.plazo) ,'2011-09-20')))
+            //    , ventas.enc_facturas.moneda, ventas.enc_facturas.tipo_cambio, 'MN') 
+            as saldo_vencido2, 
+       		f_dias_vencimiento_buro_credito( datediff(day, ( 
+				ventas.enc_facturas.fecha +  ventas.enc_facturas.plazo) ,
+				'2011-09-20') ) as max ,
+         	ventas.enc_facturas.moneda AS moneda,   
+         	to_money(sum(round(f_conv_moneda(ventas.enc_facturas.saldo,ventas.enc_facturas.moneda, ventas.enc_facturas.tipo_cambio, 'MN'),2))) as saldo_acumulado ,   
+         	count(ventas.enc_facturas.num_docto) AS num_docto,   
+         	UCASE( ventas.clientes.nombre) AS nombre,   
+         	(ventas.clientes.direccion_1 ||' '||ventas.clientes.direccion_2) AS direccion_completa,    
+         	UCASE(ventas.ciudades.cve_estado_sepomex) AS cve_estado_sepomex,   
+         	UCASE(ventas.ciudades.cve_pais_sepomex) AS cve_pais_sepomex,   
+         	UCASE(ventas.clientes.rfc) AS rfc,
+               	  ventas.clientes.cp  AS cp,
+         	UCASE(ventas.ciudades.ciudad) AS ciudad,
+         	UCASE( ventas.ciudades.estado) AS estado
+            ,(SELECT FIRST l.fecha FROM enc_facturas l WHERE l.clave_cliente=ventas.clientes.clave_cliente ORDER BY l.fecha ASC ) AS fecha_apertura 
+            ,(SELECT FIRST y.fecha AS fecha_pago FROM enc_facturas x INNER JOIN pagos_cxc y
+                ON x.num_docto=y.num_docto WHERE x.clave_cliente=ventas.clientes.clave_cliente AND x.clave_bodega=y.clave_bodega ORDER BY fecha_pago DESC) AS fecha_ultimo_pago  
+            ,(SELECT FIRST m.fecha FROM enc_facturas m WHERE m.clave_cliente=ventas.clientes.clave_cliente ORDER BY m.fecha DESC) AS fecha_ultima_compra
+            ,ventas.clientes.limite_credito
+            ,ventas.clientes.plazo
+            //,(SELECT sum from)
+    	FROM ventas.clientes,   
+        	 ventas.enc_facturas,   
+         	 ventas.ciudades
+   		WHERE ( ventas.enc_facturas.clave_cliente = ventas.clientes.clave_cliente ) and  
+         	( ventas.clientes.clave_ciudad = ventas.ciudades.clave_ciudad ) and  
+         	( ( ventas.enc_facturas.fecha < '2011-09-20' ) AND  
+         	( ventas.enc_facturas.saldo > 0 ) )   and ventas.enc_facturas.clave_cliente 
+		IN (SELECT clave_cliente FROM temp_clientes_buro)
+		GROUP BY ventas.clientes.clave_cliente,   
+        	ventas.enc_facturas.moneda,   
+                               max,
+         	ventas.ciudades.cve_estado_sepomex,   
+         	ventas.ciudades.cve_pais_sepomex,   
+         	ventas.clientes.nombre,   
+         	direccion_completa,
+         	ventas.clientes.rfc  , ventas.clientes.cp ,
+         	ventas.ciudades.ciudad,ventas.ciudades.estado
+            ,ventas.clientes.limite_credito
+            ,ventas.clientes.plazo
+            //,ventas.clientes.tipo_cambio
+         ORDER BY ventas.clientes.clave_cliente ASC,   
+         	ventas.enc_facturas.moneda ASC,   
+                                max ASC 
+	*/
+	
+	/*
+	SELECT sum(saldo_acumulado) as saldo_vencido from (SELECT ventas.clientes.clave_cliente AS clave_cliente,    
+       		f_dias_vencimiento_buro_credito( datediff(day, ( 
+				ventas.enc_facturas.fecha +  ventas.enc_facturas.plazo) ,
+				'2011-09-20') ) as max ,
+         	ventas.enc_facturas.moneda AS moneda,   
+         	//to_money(
+                sum(round(f_conv_moneda(ventas.enc_facturas.saldo,ventas.enc_facturas.moneda, ventas.enc_facturas.tipo_cambio, 'MN'),2))
+              //      ) 
+                as saldo_acumulado ,   
+         	count(ventas.enc_facturas.num_docto) AS num_docto,   
+         	UCASE( ventas.clientes.nombre) AS nombre,   
+         	(ventas.clientes.direccion_1 ||' '||ventas.clientes.direccion_2) AS direccion_completa,    
+         	UCASE(ventas.ciudades.cve_estado_sepomex) AS cve_estado_sepomex,   
+         	UCASE(ventas.ciudades.cve_pais_sepomex) AS cve_pais_sepomex,   
+         	UCASE(ventas.clientes.rfc) AS rfc,
+               	  ventas.clientes.cp  AS cp,
+         	UCASE(ventas.ciudades.ciudad) AS ciudad,
+         	UCASE( ventas.ciudades.estado) AS estado
+            ,(SELECT FIRST l.fecha FROM enc_facturas l WHERE l.clave_cliente=ventas.clientes.clave_cliente ORDER BY l.fecha ASC ) AS fecha_apertura 
+            ,(SELECT FIRST y.fecha AS fecha_pago FROM enc_facturas x INNER JOIN pagos_cxc y
+                ON x.num_docto=y.num_docto WHERE x.clave_cliente=ventas.clientes.clave_cliente AND x.clave_bodega=y.clave_bodega ORDER BY fecha_pago DESC) AS fecha_ultimo_pago  
+            ,(SELECT FIRST m.fecha FROM enc_facturas m WHERE m.clave_cliente=ventas.clientes.clave_cliente ORDER BY m.fecha DESC) AS fecha_ultima_compra
+            ,ventas.clientes.limite_credito
+            ,ventas.clientes.plazo
+            //,(SELECT sum from)
+    	FROM ventas.clientes,   
+        	 ventas.enc_facturas,   
+         	 ventas.ciudades
+   		WHERE ( ventas.enc_facturas.clave_cliente = ventas.clientes.clave_cliente ) and  
+         	( ventas.clientes.clave_ciudad = ventas.ciudades.clave_ciudad ) and  
+         	( ( ventas.enc_facturas.fecha < '2011-09-20' ) AND  
+         	( ventas.enc_facturas.saldo > 0 ) )   and ventas.enc_facturas.clave_cliente 
+		IN (SELECT clave_cliente FROM temp_clientes_buro)
+		GROUP BY ventas.clientes.clave_cliente,   
+        	ventas.enc_facturas.moneda,   
+                               max,
+         	ventas.ciudades.cve_estado_sepomex,   
+         	ventas.ciudades.cve_pais_sepomex,   
+         	ventas.clientes.nombre,   
+         	direccion_completa,
+         	ventas.clientes.rfc  , ventas.clientes.cp ,
+         	ventas.ciudades.ciudad,ventas.ciudades.estado
+            ,ventas.clientes.limite_credito
+            ,ventas.clientes.plazo
+         ORDER BY ventas.clientes.clave_cliente ASC,   
+         	ventas.enc_facturas.moneda ASC,   
+                                max ASC 
+) as tt where clave_cliente='A002' and max!= 0
+	*/

@@ -1,0 +1,1795 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" resize="{onResize()}" creationComplete="{init()}"  width="100%" height="100%" 
+	paddingBottom="5" paddingLeft="5" paddingRight="5" xmlns:actionscripts="actionscripts.*" xmlns:SuperGrid="components.SuperGrid.*" xmlns:footerDataGrid="actionscripts.footerDataGrid.*">
+	
+	<mx:Script>
+		<![CDATA[
+		
+			import actionscripts.Iconos;
+			import actionscripts.MultilineCheckBox;
+			import actionscripts.Serializer;
+			import actionscripts.Utils;
+			import actionscripts.footerDataGrid.SummaryColumn;
+			import actionscripts.footerDataGrid.SummaryFooter;
+			
+			import com.hurlant.util.der.Type;
+			
+			import components.SuperGrid.CheckBoxDG;
+			
+			import mx.binding.utils.BindingUtils;
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.controls.Alert;
+			import mx.controls.DataGrid;
+			import mx.controls.DateField;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.controls.dataGridClasses.DataGridItemRenderer;
+			import mx.core.UIComponentGlobals;
+			import mx.core.UITextField;
+			import mx.events.CloseEvent;
+			import mx.events.CollectionEvent;
+			import mx.events.DataGridEvent;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.InvokeEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.http.mxml.HTTPService;
+			import mx.utils.ObjectUtil;
+			import mx.utils.StringUtil;
+			
+			
+			
+			
+			//Variables Generales
+			[Bindable] public var _wsFiltrar:HTTPService; // HttpService que apunta al php donde se hace la busqueda
+			[Bindable] public var _arrColumnas:Array; // Arreglo de DataGridColumns que van en el Grid
+			[Bindable] public var _arrFooters:Array = new Array(); // Arreglo de footerDataGrid:SummaryColumn para el Footer del Grid
+			[Bindable] public var _arrPropiedades:Array = new Array(); // Arreglo de Objetos con las propiedades de las columnas, sólo necesario cuando hay columnas numericas o de fechas
+			[Bindable] public var arrRegistrosSeleccionados:ArrayCollection=new ArrayCollection();	//Arreglo con todos los registros seleccionados/checados
+			[Bindable] public var arrResultados:ArrayCollection = new ArrayCollection(); // DataProvider en Grid			
+			[Bindable] public var _idtabla:String=""; /* - Id dentro de los campos de busqueda
+														 - Obligatorio si se especifica _wsBorrar
+														 - Recomendado para hacer mas rapida la busqueda de registros seleccionados */
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var loadOnInit:Boolean=true; // Indica si se inicializa todo en el creationComplete 													  
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var headerChxSelected:Boolean=false; // Bandera que indica si está seleccionado el checkbox del Header			
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] private var boolRevisaExisteIdTabla:Boolean=false; // Bandera que indica si se revisó que exista _idtabla en los campos recibidos del filtro	
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var searchOnInit:Boolean = true; // Carga Resultados en init()
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var showContenedorStNavigation:Boolean = true; // Muestra botones de atras y siguiente en contenedorSt
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var showContenedorStBtnGuardar:Boolean = true; // Muestra boton de guardar en contenedorSt
+			
+				
+				
+				
+			// Local DataProvider
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var useLocalDataProvider:Boolean = false; // Indica si se usará un DataProvider Local
+			[Bindable] public var arrLocalResultados:ArrayCollection = new ArrayCollection(); // ArrayCollection Local, usar  ridResultados.loadLocalDataProvider(arrResultados); 
+			
+				
+				
+			//Variables Paginación
+			[Bindable] public var offset:int=1;		       		// Variable de control para el offset entre querys (NO EDITABLE solo se inicializa) - desde que registro inicia
+			[Bindable] private var pagsmostradas:int = 5;  		// total de botones de paginacion
+			[Bindable] public var paginaActual:int = 1;    		// primer boton de paginacion
+			[Bindable] public var regsporpag:int = 100;    		// total de registros mostrados por pagina - limit - cuantos regs mostrar
+			[Bindable] public var orderBy:String="";       		// dataField de la columna seleccionada con el cual se ordenaran los registros
+			[Bindable] public var orderBy_Tipo:String="";  		// tipo (S,N,F) del dataField de la columna seleccionada con el cual se ordenaran los registros
+			[Bindable] public var sortCompareFn:Function=null; 	// SortCompareFunction de la columna a ordernar
+			[Bindable] public var ascOrder:Boolean = true; 		// true = Ascendente      false = Descendente
+			[Bindable] public var totalpags:int = 0;       		// total de paginas
+			[Bindable] public var totalregs:int = 0;       		// total de registros
+			
+			
+			
+			//Variables Reporte
+			[Bindable] public var tituloReporte:String 		= "";  // Titulo que aparecerá al generar algún Reporte
+			[Bindable] public var urlReporte:String			= loader.strHostUrl +"reporte_super_grid.php";   // Url del php que genera el reporte
+			[Bindable] public var opcionExtraReporte:String = ""; // Campo Extra opcional que se envía al generar un reporte
+			[Bindable] public var ReporteHeaderTableFn:Function = null; // Funcion opcional que regresa un String html para ingresar en el reporte (antes de la tabla de resultados)
+			[Bindable] public var ReporteFooterTableFn:Function = null; // Funcion opcional que regresa un String html para ingresar en el reporte (despues de la tabla de resultados)
+			[Bindable] public var tabla_informativa:String=""; // Campo adicional, String html para ingresar despeus del título del Reporte 
+			
+			
+			
+			//Variables de Grid
+			[Bindable] public var strBusquedaUtilizada:String=""; // Último filtro utilizado en el TextInput			
+			[Bindable] public var numPrimerRegistro:int=1;  // Numero del primer registro utilizado en la columna default de numero de registro
+			[Bindable] public var showCheckBoxColumn:int = 0; // 0-Auto: Si es catalogo o puede imprimir    1-Si   2-No
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var wordWrap:Boolean=false; //Ajuste automatico de contenido
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var headerWordWrap:Boolean=false; // Altura variable de Titulos  
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var optimizeColumns:Boolean=false; // Ajsute automatico de columnas
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var variableRowHeight:Boolean=false; // Altura variable de renglones
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var _allowMultipleSelection:Boolean = false; // Bandera para habilitar/deshabilitar la opcion de allowMultipleSelection del Grid
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var _doubleClickEnabled:Boolean = true; // Bandera de doubleClickEnabled del Grid
+			[Inspectable(enumeration="true,false" , defaultValue="false")] [Bindable] public var lockColumns:Boolean = false; // 'Lockea' las primeras 2 columnasdel grid			
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var canSearchRows:Boolean = true; // Indica si tiene la opción de buscar registros
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var showBtnImprimir:Boolean=true; // Indica si el boton de imprimir está disponible
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var showHorizontalScroll:Boolean = false; // Lockea las primeras 2 columnas y aparece la barra horizontal abajo (en caso de ser necesario)
+			[Inspectable(enumeration="true,false" , defaultValue="true")] [Bindable] public var checkOnItemClick:Boolean = false; // Columna Checkbox True al seleccionar algún registro
+			
+			
+			
+			// Funciones Grid
+			[Bindable] public var _itemDoubleClick:Function = null; // Funcion a invocar en caso del evento itemDoubleClick del Grid
+			[Bindable] public var _dgItemClick:Function = null;     // Funcion a invocar en caso del evento itemClick del Grid
+			
+			
+						
+			// Colores Grid
+			[Bindable] public var _headerColors:Array = [0xFFFFFF, 0xE6E6E6]; //Color de fondo de los headers del grid (default)
+			[Bindable] public var _horizontalGridLines:Boolean = false;
+			[Bindable] public var _horizontalGridLineColor:uint = 0xF7F7F7;
+			[Bindable] public var _verticalGridLines:Boolean = true;
+			[Bindable] public var _verticalGridLineColor:uint = 0xCCCCCC;			
+			[Bindable] public var _rowColorFunction:Function = null;
+			
+			
+			
+			// Catalogo
+			[Bindable] public var isCatalogo:Boolean = false; /* True = aparecen los botones de Nuevo, Editar, Borrar y Copiar
+																obligatorio: _padreCatalogo, _wsBorrar, _idtabla
+															  */
+			[Bindable] public var _padreCatalogo:*; /* Utilizado para catalogos, _padreCatalogo debe contener la funcion getCatalogoSt() que envie el modulo/componente
+													   a cargar en contenedorST.
+													   Ej:
+														
+													 	public function getCatalogoSt():stEncuesta{
+															return new stEncuesta;
+														} 
+														
+														ó
+														
+														public function getCatalogoSt(strAccion:String="", item:Object = null):*{	
+															strAccion = 'NUEVO', 'EDITAR' ó 'COPIAR'
+															item = selectedItem
+															return new stEncuesta;
+														}
+													 */			
+			
+			
+			
+			// Borrar
+			[Bindable] public var _wsBorrar:HTTPService; // HttpService para Borrar			
+			[Bindable] private var msgBorrado:String=""; // Mensaje al borrar
+			[Bindable] private var borraSeleccionados:Boolean=false; // Bandera si seleccionó la opcion de borrar seleccionados/checados para hacer un removeAll()
+			[Bindable] private var itemBorrar:Object; // item Seleccionado a borrar
+			
+			
+			
+			
+			
+			
+			
+			
+			private function onResize():void{
+				gridResultados.validateNow();
+				this.validateNow();	
+			}
+			
+			public function init():void{
+				if(loadOnInit){
+					if(_arrColumnas==null){
+						loader.msgAviso("Error al recibir las columnas del grid",3);
+						this.enabled=false;
+						return;	
+					}
+					
+					if(_arrColumnas.length==0){
+						loader.msgAviso("No se recibieron las columnas del grid",3);
+						this.enabled=false;
+						return;	
+					}
+					
+					if(isCatalogo){
+						if(_padreCatalogo==null){
+							loader.msgAviso("No se recibió _padreCatalogo",3);
+							this.enabled=false;
+							return;	
+						}
+						if(_wsBorrar==null){
+							loader.msgAviso("No se recibió _wsBorrar",3);
+							this.enabled=false;
+							return;
+						}
+						if(_idtabla==""){
+							loader.msgAviso("No se recibió _idtabla",3);
+							this.enabled=false;
+							return;	
+						}						
+						initWSBorrar();
+					} 
+					
+					
+					if(showBtnImprimir && urlReporte==""){
+						loader.msgAviso("No se recibió urlReporte",3);
+						this.enabled=false;
+						return;
+					}
+					
+					initDG();
+					
+					if(useLocalDataProvider == false){
+						if(_wsFiltrar==null){
+							loader.msgAviso("No se recibió _wsFiltrar",3);
+							this.enabled=false;
+							return;
+						}
+						initWS();
+					}
+				}
+			}
+			
+			/*********  initDG *********/
+			private function initDG():void{
+				if(showHorizontalScroll==true){
+					gridResultados.horizontalScrollPolicy = "auto";
+					lockColumns = true;
+				} 
+				
+				var arr:Array= gridResultados.columns;
+				gridResultados.dataProvider = new ArrayCollection();	
+				
+				//columna checkbox necesaria solo cuando es catalogo o cuando deseas imprimir
+				if(showCheckBoxColumn==1 || (showCheckBoxColumn==0 && (isCatalogo || showBtnImprimir))){
+					var dc:DataGridColumn=new DataGridColumn();				
+					dc.sortable = false;
+					dc.draggable = false;
+					dc.dataField="checkedDG";				
+					dc.width=15;
+					
+					var cf:ClassFactory = new ClassFactory(headerCheckBoxDG);
+					cf.properties = {_padre:this};
+					dc.headerRenderer = cf;
+					
+					cf = new ClassFactory(CheckBoxDG);
+					cf.properties = {_padre:this};
+					dc.itemRenderer = cf;			
+							
+					arr.push(dc);		
+					
+					if(lockColumns && _arrFooters.length==0) gridResultados.lockedColumnCount=2;			
+				}else{
+					if(lockColumns && _arrFooters.length==0) gridResultados.lockedColumnCount=1; //
+				}
+				
+				for(var i:int=0;i<_arrColumnas.length;i++){
+					for(var j:int=0;j<_arrPropiedades.length;j++){
+						if(_arrColumnas[i].dataField && _arrColumnas[i].dataField!="checkedDG" &&   String(_arrPropiedades[j].dataField) == _arrColumnas[i].dataField && _arrPropiedades[j].tipo){
+							switch(String(_arrPropiedades[j].tipo).toUpperCase()){
+								case "N":
+								case "NUMERO":
+								case "NUMBER":
+									if(_arrPropiedades[j].useCurrencyFormatter){
+										(_arrColumnas[i] as DataGridColumn).labelFunction = labelfunction_CF(_arrPropiedades[j].dataField);
+									}
+									break; 
+									
+								/*case "F":
+								case "FECHA":
+								case "DATE":
+									(_arrColumnas[i] as DataGridColumn).sortCompareFunction = sortfunction_DF(_arrPropiedades[j].dataField);
+									break;*/		
+							}
+						} 
+					}
+					arr.push(_arrColumnas[i]);
+				}
+				
+				gridResultados.columns = arr;	
+				gridResultados.columns[0].width=65;
+				
+				initFooters();
+			}
+			
+			private function labelfunction_CF(fieldName:String):Function {
+			   return function(item:Object, column:DataGridColumn):String
+			    {
+			       	return idCurrencyFormatter.format(String(item[fieldName]));
+			    }
+			}
+			
+			private function sortfunction_DF(fieldName:String):Function {
+			   return function(itemA:Object, itemB:Object, fields:Array = null):int
+			    {
+			       	 var dateA:Number = new Date(Date.parse(itemA[fieldName])).getTime();
+	                 var dateB:Number = new Date(Date.parse(itemB[fieldName])).getTime();
+	                 
+	                 if(isNaN(dateA)) return 1;
+	                 if(isNaN(dateB)) return -1;
+	                 
+	                 if(dateA > dateB)  return -1;
+	                 else if(dateA < dateB) return 1;
+	                 else return 0;
+	                     	             
+			       	 /*
+			       	 var dateA:Date = new Date(Date.parse(itemA[fieldName]));
+	                 var dateB:Date = new Date(Date.parse(itemB[fieldName]));
+    	             return ObjectUtil.dateCompare(dateA, dateB);
+    	             */
+			    }
+			}
+			
+			private function fieldNumericSorter(fieldName:String):Function {
+			   return function(obj1:Object, obj2:Object):int
+			    {
+			        var value1:Number = (obj1[fieldName] == '' || obj1[fieldName] == null) ? null : new Number(obj1[fieldName]);
+			        var value2:Number = (obj2[fieldName] == '' || obj2[fieldName] == null) ? null : new Number(obj2[fieldName]);
+			        return ObjectUtil.numericCompare(value1, value2);
+			    }
+			}
+			
+			
+			
+			private function initFooters():void{
+				if(_arrFooters.length==0) return;
+				
+				
+				// Validando que no se haya ingresado ambos
+				var has_SF:Boolean = false;
+				var has_SC:Boolean = false;
+				var sf:SummaryFooter;
+				for(var i:int=0;i<_arrFooters.length;i++){
+					if(_arrFooters[i] is SummaryFooter){
+						has_SF = true;
+						sf = _arrFooters[i] as SummaryFooter;
+						if(sf.columns && (sf.columns.length > _arrColumnas.length)){
+							loader.msgAviso("Error:\n\nEl número de columnas en el Footer ["+sf.columns.length+"] no puede ser mayor al número de columnas ["+_arrColumnas.length+"]",3);
+							this.enabled=false;
+							return;
+						}
+						
+					}else if(_arrFooters[i] is SummaryColumn){
+						has_SC = true;
+					}else{
+						loader.msgAviso("Error:\n\nSólo se aceptan componentes tipo SummaryFooter y SummaryColumn",3);
+						this.enabled=false;
+						break;
+						return;
+					}
+				}
+				
+				if(has_SF && has_SC){
+					loader.msgAviso("Error:\n\nNo puede haber SummaryFooter y SummaryColumn al mismo tiempo",3);
+					this.enabled=false;				
+					return;
+				}
+				
+				
+				
+				
+				
+				//Si son SummaryFooter asignar
+				if(has_SF){
+					for(var j:int=0; j<_arrFooters.length; j++){
+						sf = _arrFooters[0] as SummaryFooter;						
+						if(sf.columns){
+							sf.columns = addFootersPendientes(sf.columns);
+						} 
+					}
+					gridResultados.footer = _arrFooters;
+				}else{
+					
+					//Si son SummaryColumn agregar a un SummaryFooter y asignar
+					var arr:Array = new Array();
+					sf = new SummaryFooter();
+					sf.columns = addFootersPendientes(_arrFooters);
+					arr.push(sf);
+					gridResultados.footer = arr;
+				}
+				
+				gridResultados.setStyle("paddingBottom",0);
+				//gridResultados.invalidateProperties();
+			}
+			
+			private function addFootersPendientes(arr:Array):Array{
+				try{
+					//Agregar footers pendientes al final
+					if(arr.length < _arrColumnas.length){
+						var toAdd:int = _arrColumnas.length - arr.length;
+						for(var k:int=0; k<toAdd; k++){
+							arr.push(new SummaryColumn());
+						} 
+					}
+					
+					//col indice
+					var sc:SummaryColumn = new SummaryColumn();
+					sc.useColumnItemRenderer = false;
+					sc.checkedDG = true;
+					arr.splice(0,0,sc);
+					
+					
+					// col checkbox
+					if(showCheckBoxColumn==1 || (showCheckBoxColumn==0 && (isCatalogo || showBtnImprimir))){
+						sc = new SummaryColumn();
+						sc.useColumnItemRenderer = false;
+						sc.checkedDG = true;						
+						arr.splice(0,0,sc);
+					}
+					
+				}catch(ex:Error){
+					arr = new Array();
+					loader.msgAviso("Error->addFootersPendientes",3,ex);
+					this.enabled=false;
+				}
+				return arr;			
+			}
+			
+			
+			/********* WS Events *************/
+			public function invokeWS(event:InvokeEvent):void{
+				loader.dp.cargaLoader(this);
+			}
+			
+			public function faultWS(event:FaultEvent):void{
+				loader.dp.reintentarHttpService("FaultWS: Problema al recibir los resultados",_wsFiltrar,event);							
+			}
+			/********* WS *************/
+			
+			
+			
+			
+			/********* initWS *********/
+			private function initWS():void{
+				_wsFiltrar.requestTimeout=30000;
+				_wsFiltrar.addEventListener(ResultEvent.RESULT,getResultados);
+				_wsFiltrar.addEventListener(FaultEvent.FAULT,faultWS);				
+				_wsFiltrar.addEventListener(InvokeEvent.INVOKE,invokeWS);
+				_wsFiltrar.method="POST";
+				_wsFiltrar.showBusyCursor = true;
+				_wsFiltrar.resultFormat='object';	
+				
+				if(searchOnInit){
+					buscaRespuestas();//TENDRE QUE ARREGLAR ESTO SI QUIERO USAR LAS NORMAS!!
+				}
+					
+			}
+			/********* initWS *********/
+			
+			
+			
+			
+			
+			
+			/******** WS Borrar **********/
+			private function initWSBorrar():void{
+				_wsBorrar.requestTimeout=20;
+				_wsBorrar.addEventListener(ResultEvent.RESULT,resultBorrar);
+				_wsBorrar.addEventListener(FaultEvent.FAULT,faultWS);				
+				_wsBorrar.addEventListener(InvokeEvent.INVOKE,invokeWS);
+				_wsBorrar.method="POST";
+				_wsBorrar.showBusyCursor = true;
+				_wsBorrar.resultFormat='text';	
+			}
+			
+			public function borrarRegistro():void{
+				if(arrRegistrosSeleccionados.length>0 && gridResultados.selectedItem){
+					itemBorrar = gridResultados.selectedItem;
+					
+					if(arrRegistrosSeleccionados.length==1 && (arrRegistrosSeleccionados[0][_idtabla]==itemBorrar[_idtabla])){											
+						/*Alert.yesLabel = "Aceptar";
+						Alert.cancelLabel = "Cancelar";					
+						Alert.buttonWidth = 90;
+						Alert.show("¿Desea borrar el registro Actual?","Borrar",Alert.YES|Alert.CANCEL,this.parentApplication as Sprite,verificarOpcionBorrar,Iconos.MESSAGEBOX_QUESTION,Alert.YES);*/
+						loader.msgReintentar("¿Desea borrar el Registro Actual?",verificarOpcionBorrarActual,"");
+													
+					}else{				
+						Alert.yesLabel = "A";
+						Alert.noLabel = "B";
+						Alert.cancelLabel = "Cancelar";
+						Alert.buttonWidth = 90;
+						Alert.show("Seleccione la opción que desea eliminar:\n\nA) Registro Actual.\n\nB) Registros checados ["+arrRegistrosSeleccionados.length+"].\n\n","Borrar",Alert.YES|Alert.NO|Alert.CANCEL,this.parentApplication as Sprite,verificarOpcionBorrarMultiple,Iconos.MESSAGEBOX_QUESTION,Alert.YES);					
+						Alert.yesLabel = "Aceptar";
+						Alert.noLabel = "Cancelar";
+						
+						//loader.msgReintentar("Seleccione la opción que desea eliminar:\n\nA) Registro Actual.\n\nB) Registros checados ["+arrRegistrosSeleccionados.length+"].\n\n",verificarOpcionBorrarMultiple,"", "Aviso", "A", "B");
+					}
+				}else{					
+					if(gridResultados.selectedItem){	
+						itemBorrar = gridResultados.selectedItem;					
+						/*Alert.yesLabel = "Aceptar";
+						Alert.cancelLabel = "Cancelar";					
+						Alert.buttonWidth = 90;
+						Alert.show("¿Desea borrar el Registro Actual?","Borrar",Alert.YES|Alert.CANCEL,this.parentApplication as Sprite,verificarOpcionBorrar,Iconos.MESSAGEBOX_QUESTION,Alert.YES);*/	
+						loader.msgReintentar("¿Desea borrar el Registro Actual?",verificarOpcionBorrarActual,"");
+											
+					}else{						
+						if(arrRegistrosSeleccionados.length>0){
+							/*Alert.noLabel = "Aceptar";
+							Alert.cancelLabel = "Cancelar";					
+							Alert.buttonWidth = 90;
+							Alert.show("¿Desea borrar los Registros checados ["+arrRegistrosSeleccionados.length+"]?","Borrar",Alert.NO|Alert.CANCEL,this.parentApplication as Sprite,verificarOpcionBorrar,Iconos.MESSAGEBOX_QUESTION,Alert.YES);
+							Alert.noLabel = "Cancelar";*/
+							loader.msgReintentar("¿Desea borrar los Registros checados ["+arrRegistrosSeleccionados.length+"]?",verificarOpcionBorrarChecados,"");	
+						}
+					}
+				}
+			}
+			
+			
+			private function verificarOpcionBorrarActual(event:CloseEvent):void{
+				if (event.detail == Alert.YES){
+					msgBorrado = "Registro borrado correctamente";
+					_wsBorrar.method = "POST";
+					borraSeleccionados    = false;					
+					_wsBorrar.request.ids = itemBorrar[_idtabla];					
+					loader.dp.cargaService(_wsBorrar);
+				}											
+			}
+			
+			private function verificarOpcionBorrarChecados(event:CloseEvent):void{
+				if (event.detail == Alert.YES){
+					msgBorrado = "Registro borrado correctamente";
+					_wsBorrar.method = "POST";
+					borraSeleccionados=true;
+					
+					var strIdsBorrar:String = "";					
+					for(var i:int=0;i<arrRegistrosSeleccionados.length;i++){
+						if(strIdsBorrar!="") strIdsBorrar += "|";
+						strIdsBorrar += arrRegistrosSeleccionados[i][_idtabla];
+					}
+					
+					if(arrRegistrosSeleccionados.length>1) msgBorrado = "Registros borrados correctamente";
+					_wsBorrar.request.ids = strIdsBorrar;
+					loader.dp.cargaService(_wsBorrar);
+				}											
+			}
+			
+			private function verificarOpcionBorrarMultiple(event:CloseEvent):void{
+				msgBorrado = "Registro borrado correctamente";
+				_wsBorrar.method = "POST";
+				
+				if (event.detail == Alert.YES){
+					borraSeleccionados    = false;					
+					_wsBorrar.request.ids = itemBorrar[_idtabla];					
+					loader.dp.cargaService(_wsBorrar);	
+					
+				}else if (event.detail == Alert.NO){
+					borraSeleccionados=true;
+					
+					var strIdsBorrar:String = "";					
+					for(var i:int=0;i<arrRegistrosSeleccionados.length;i++){
+						if(strIdsBorrar!="") strIdsBorrar += "|";
+						strIdsBorrar += arrRegistrosSeleccionados[i][_idtabla];
+					}
+					
+					if(arrRegistrosSeleccionados.length>1) msgBorrado = "Registros borrados correctamente";
+					_wsBorrar.request.ids = strIdsBorrar;
+					loader.dp.cargaService(_wsBorrar);
+				}											
+			}
+			
+			private function resultBorrar(event:ResultEvent):void{
+				this.parentApplication.enabled=true;
+				
+				if(StringUtil.trim(event.result.toString())=="ok"){
+					if(borraSeleccionados == true) arrRegistrosSeleccionados.removeAll();
+					loader.msgAviso(msgBorrado);
+					buscaRespuestas();
+						
+				}else{
+					if(loader.debug){
+						loader.msgAviso(StringUtil.trim(event.result.toString()),3);							
+					}else{
+						loader.dp.reintentarHttpService("Ocurrió un problema al realizar la operación de borrado",_wsBorrar,event);
+					}
+				}
+				loader.dp.removeLoader();
+			}
+			/********* WS Borrar **********/
+			
+			
+			
+			
+			
+			
+			
+			
+			/******** PUBLICAS **********/
+			public function selectedItem():Object{
+				return gridResultados.selectedItem;
+			}
+			
+			public function selectedItems():Array{
+				return gridResultados.selectedItems;
+			}
+			
+			public function selectedIndex():int{
+				return gridResultados.selectedIndex;
+			}
+			
+			private function dblClick():void{
+				if(_itemDoubleClick!=null){
+					_itemDoubleClick();
+				}else{
+					if(!showContenedorStBtnGuardar || ( isCatalogo && btnEditar.visible)){
+						catalogoClick('EDITAR');
+					}
+				} 
+			}
+			
+			private function dgItemClick(event:ListEvent):void{
+				if(checkOnItemClick && gridResultados.selectedItem){
+					if((gridResultados.columns[event.columnIndex] as DataGridColumn).dataField != "checkedDG"){ 
+						if(!gridResultados.selectedItem["checkedDG"] || gridResultados.selectedItem["checkedDG"]==""){
+							gridResultados.selectedItem["checkedDG"] = "1";
+							agregaItem(gridResultados.selectedItem);
+						}else{
+							if(gridResultados.selectedItem["checkedDG"]=="1"){
+								removeItem(gridResultados.selectedItem);
+								gridResultados.selectedItem["checkedDG"] = "0";
+							}else{
+								gridResultados.selectedItem["checkedDG"] = "1";
+								agregaItem(gridResultados.selectedItem);
+							} 
+						}
+					}
+				}
+				
+				if(_dgItemClick != null) _dgItemClick(event);
+			}
+			/******** PUBLICAS **********/
+			
+			
+			
+			
+			/******** SELECCIONADOS **********/
+			// agrega registro checado al arreglo
+			public function agregaItem(item:Object):void{
+				arrRegistrosSeleccionados.addItem(item);	
+			}
+			
+			// borra registro del arreglo
+			public function removeItem(item:Object):Boolean{
+				for(var i:int=0;i<arrRegistrosSeleccionados.length;i++){
+					if(_idtabla==""){
+						if(Utils.compareObject(arrRegistrosSeleccionados[i],item)==true){
+							arrRegistrosSeleccionados.removeItemAt(i);
+							return true;
+						}
+					}else{
+						//Busqueda por _idtabla (más rapida)						
+						if(arrRegistrosSeleccionados[i][_idtabla] == item[_idtabla]){
+							arrRegistrosSeleccionados.removeItemAt(i);
+							return true;
+						}
+					}
+				}
+				return false;	
+			}
+			
+			
+			//revisa el array recibido del filtro y checa los que ya habian sido checados con anterioridad
+			public function buscaItemsSeleccionados(arr:ArrayCollection):void{
+				var existe:Boolean;
+				
+				for(var j:int=0;j<arr.length;j++){
+					arr[j]["checkedDG"]="1";
+					existe=false;					
+					for(var i:int=0;i<arrRegistrosSeleccionados.length;i++){
+						if(_idtabla==""){
+							if(Utils.compareObject(arrRegistrosSeleccionados[i],arr[j])==true){
+								existe=true;
+								break;
+							}
+						}else{
+							//Busqueda por _idtabla (más rápida)		
+							var s:String = arrRegistrosSeleccionados[i][_idtabla];
+							var s2:String = arr[j][_idtabla];					
+							if(arrRegistrosSeleccionados[i][_idtabla] == arr[j][_idtabla]){
+								existe=true;
+								break;
+							}
+						}
+					}
+					if(!existe) arr[j]["checkedDG"]="0";						
+				}	
+			}
+			
+			
+			//revisa que _idtabla exista
+			private function revisaExisteIdTabla(item:Object):Boolean{
+				try{
+					if(item[_idtabla]==null || item[_idtabla]==undefined || !item[_idtabla] || String(item[_idtabla])==""){
+						loader.msgAviso("No se encontró el campo ["+_idtabla+"] en los registros.\n\nFavor de Consultar al Administrador",3);
+						this.enabled=false;
+						return false;
+					}	
+				}catch(ex:Error){
+					loader.msgAviso("revisaExisteIdTabla->Error",3,ex);					
+					return false;
+				}	
+				boolRevisaExisteIdTabla = true;
+				return true;
+			}
+			
+			
+			//se manda llamar desde headerCheckBoxDG.mxml cuando ocurre algun cambio en el combobox
+			public function headerChxChange():void{
+				//DS var arrResultados:ArrayCollection = gridResultados.dataProvider as ArrayCollection;
+				
+				for(var i:int=0; i<arrResultados.length; i++){
+					if(headerChxSelected){
+						if(arrResultados[i]["checkedDG"]=="1"){
+							//nada, ya está seleccionado
+						}else{
+							arrResultados[i]["checkedDG"]="1";
+							agregaItem(arrResultados[i]);
+						}	
+					}else{
+						if(arrResultados[i]["checkedDG"]=="1"){
+							if(removeItem(arrResultados[i])){
+								arrResultados[i]["checkedDG"]="0";
+							}
+						}else{
+							//nada, no está seleccionado							
+						}
+					}
+				}
+			}
+			/******** SELECCIONADOS **********/
+			
+			
+			
+			
+			
+			
+			/******** GRID_PAGINADO ********/	
+			public function txtTextoChange():void{
+				if(useLocalDataProvider){
+					buscaNewRespuestas();
+				}
+			}
+			
+			public function loadLocalDataProvider(arr:ArrayCollection):void{
+				useLocalDataProvider = true;
+				txtTexto.text = "";
+				strBusquedaUtilizada = "";
+				paginaActual=1;
+				offset=1;
+				
+				arrLocalResultados = ObjectUtil.copy(arr) as ArrayCollection;	
+				arrResultados = ObjectUtil.copy(arr) as ArrayCollection;	
+				gridResultados.dataProvider = arrResultados;
+				
+				buscaLocalRespuestas();
+			}
+			
+	
+			public function buscaNewRespuestas():void{
+				paginaActual=1;
+				offset=1;
+				buscaRespuestas();	
+			}
+			
+			public function buscaRespuestas():void{
+				if(canSearchRows){
+					strBusquedaUtilizada = txtTexto.text;
+					
+					if(useLocalDataProvider){
+						buscaLocalRespuestas();
+						Alert.show("Entre a LocalRespuestas");
+						
+					}else{
+						if(offset==0){
+							offset=1;
+						}
+						if(vboxNormas){
+							_wsFiltrar.request.normas   = Serializer.serialize(getArrNormas());  //TENDRE QUE VER COMO ARREGLAR ESTAS NORMAS PARA QUE FUNCIONEN LAS BUSQUEDAS
+							_wsFiltrar.request.union    = cbTipoUnion.selectedItem ? cbTipoUnion.selectedItem.tipo : 0;
+						}
+						
+						_wsFiltrar.request.limit    = regsporpag;
+						_wsFiltrar.request.texto    = txtTexto.text;
+						_wsFiltrar.request.offset   = offset;
+						_wsFiltrar.request.orderby  = orderBy;
+						_wsFiltrar.request.ascorder = (ascOrder) ? 1 : 2;
+						
+						//loader.dp.numWsCargando=0;
+						//loader.dp.numWsCargando=0;
+						loader.dp.cargaService(_wsFiltrar);
+					}
+				}
+			}
+			
+			private function buscaLocalRespuestas():void{				
+				var _arrNormas:Array = getArrNormas();
+				arrResultados = new ArrayCollection();
+				
+				if(strBusquedaUtilizada=="" && _arrNormas.length==0){	
+					// Si no tiene texto ni normas mostrar todo				
+					arrResultados = ObjectUtil.copy(arrLocalResultados) as ArrayCollection;
+						
+				}else{
+					
+					var flagT:Boolean = false;
+					var flagN:Boolean = false;
+					var item:Object;
+					var copyLocal:ArrayCollection = ObjectUtil.copy(arrLocalResultados) as ArrayCollection;
+					
+					
+					for(var i:int=0; i<copyLocal.length; i++){
+						flagT = (strBusquedaUtilizada==""); //Si no tiene texto mostrar
+						flagN = (_arrNormas.length==0); //Si no tiene normas mostrar
+						item = copyLocal[i];
+						
+						if(!flagT){
+							for(var j:int=0;j<_arrColumnas.length;j++){
+								if(!flagT && _arrColumnas[j].dataField && _arrColumnas[j].dataField!="checkedDG" && item[_arrColumnas[j].dataField]){
+									if(String(item[_arrColumnas[j].dataField]).toLowerCase().search(Utils.trim(strBusquedaUtilizada).toLowerCase()) != -1){
+										flagT = true;
+									}
+									//return item[selectedName].match(new RegExp(searchField.text, 'i'))
+								}
+							}	
+						}
+						
+						
+						if(!flagN){
+							var c:String;
+							var t:String;
+							var fInicio:Date;
+							var fTermino:Date;
+							
+							for(var k:int=0; k<_arrNormas.length; k++){
+								c = item[_arrNormas[k]["campo"]];
+								t = _arrNormas[k]["texto"];
+								
+								switch(int(_arrNormas[k]["where"])){
+									case 2:
+										if(!flagN && String(c).toLowerCase().search( Utils.trim(t).toLowerCase() ) == -1) flagN = true; break; // !=
+										
+									// Numericas
+									case 9:  if(!flagN && c!="" && t!="" && int(c) == int(t)) flagN = true; break; // =										
+									case 10: if(!flagN && c!="" && t!="" && int(c) < int(t)) flagN = true; break; // <
+									case 11: if(!flagN && c!="" && t!="" && int(c) <= int(t)) flagN = true; break; // <=
+									case 12: if(!flagN && c!="" && t!="" && int(c) > int(t)) flagN = true; break; // >
+									case 13: if(!flagN && c!="" && t!="" && int(c) >= int(t)) flagN = true; break; // >=
+									
+									// Fechas
+									case 14: if(!flagN && c!="" && t!="" && c==t) flagN = true; break; // =
+									case 15:
+										if(!flagN && c!="" && t!=""){
+											fInicio  = DateField.stringToDate(c,"DD/MM/YYYY");
+											fTermino = DateField.stringToDate(t,"DD/MM/YYYY"); 										
+											if(Utils.compareDates(fInicio,fTermino)<=0){ 
+												flagN = true; // >=
+											}
+										}
+										break;
+										
+									case 16: 
+										if(!flagN && c!="" && t!=""){
+											fInicio  = DateField.stringToDate(c,"DD/MM/YYYY");
+											fTermino = DateField.stringToDate(t,"DD/MM/YYYY"); 										
+											if(Utils.compareDates(fInicio,fTermino)>=0){ 
+												flagN = true; // <=
+											}
+										}
+										break;
+									
+									default:
+										if(!flagN && String(c).toLowerCase().search( Utils.trim(t).toLowerCase() ) != -1){
+											flagN = true;
+										}
+										
+									/*
+									var dateString: String = " 25/02/2009";
+									var d:date= DateField.stringToDate(dateString,"DD/MM/YYYY");
+									if(Utils.compareDates(fecha1,fecha2)==-1){
+             							fecha1.errorString="La fecha de inicio es mayor que la fecha de vencimiento.";
+         							}*/  
+								}
+							}
+						}
+						
+						if(flagT && flagN){
+							arrResultados.addItem(item);	
+						}
+					}						
+				}
+				
+				
+				// Obteniendo total de registros y total de paginas
+				totalregs = arrResultados.length;
+				totalpags = (int(totalregs/regsporpag)+1);
+				
+				
+				
+				// Regs x Pagina diferente de Todos cortar al numero de registros a mostrar
+				if(regsporpag != 0){
+					// Detalle de paginación					
+					var _numPrimerRegistro:int = (totalregs==0 ? 0 : (offset));
+					var _numUltimoRegistro:int = ((offset+regsporpag)>totalregs ? totalregs : offset+regsporpag);
+					//txtResultados.text = "(Página "+paginaActual+" de "+totalpags+(totalpags==1?" Página, ":" Páginas, ")+"Registros del "+_numPrimerRegistro+" al "+_numUltimoRegistro+" de "+totalregs+")";
+					
+					var _arr:Array = arrResultados.toArray();
+					arrResultados = new ArrayCollection(_arr.slice(_numPrimerRegistro - 1, _numUltimoRegistro));					
+				}	
+				
+				setPaginacion();
+			}
+				
+			
+			
+			public function getResultados(event:ResultEvent):void{			
+				try{
+					//Limpiar grid y contenedor
+					gridResultados.dataProvider = new ArrayCollection();
+					contenedor_paginacion.removeAllChildren();
+					
+					
+					//Verificando que se obtuvo alguna respuesta
+					if(String(event.result)==""){
+						loader.dp.removeLoader();
+						loader.dp.reintentarHttpService("Error: La operación solicitada no devolvió respuesta alguna",_wsFiltrar);
+						return;
+					}
+					
+					//Verificando que no hubo problemas de conexion
+					if(event.result.tablas && event.result.tablas.error_cnx){
+						loader.dp.removeLoader();
+						loader.dp.reintentarHttpService("Problema al conectar a la base de datos",_wsFiltrar);
+						return;	
+					}
+					
+					
+					//Obtenemos los resultados
+					arrResultados = Utils.getRowsEvent(event);
+					if(arrResultados){	
+						// Obteniendo total de registros y total de paginas
+						totalregs = Utils.getNumRows(event.result.tablas);
+						totalpags = (int(totalregs/regsporpag)+1);
+						
+						
+						// Una vez obtenido arrResultados inicializar paginacion
+						setPaginacion();
+					} 	
+												
+				}catch(ex:Error){
+					loader.dp.reintentarHttpService("getResultados->Ocurrió un problema al recibir los datos",_wsFiltrar,ex);
+				}
+				loader.dp.removeLoader();			
+			}
+			
+			
+			private function setPaginacion():void{
+				try{
+					contenedor_paginacion.removeAllChildren();
+					
+					// Necesario para agregar flecha de ordenamiento
+					if(orderBy!=""){			
+						if(orderBy_Tipo!="F"){
+							var sF:SortField = new SortField();
+							sF.name = orderBy;
+							sF.descending = !ascOrder;
+							sF.caseInsensitive = true;
+							sF.numeric = (orderBy_Tipo=="N") ? true : false;	
+							
+							var sS:Sort = new Sort();
+							sS.fields = [sF];
+							
+							arrResultados.sort = sS;
+		    	            arrResultados.refresh();
+		    			}
+						/*
+						arrResultados.sort = new Sort();
+		                arrResultados.sort.fields = [new SortField(orderBy,true, !ascOrder,true)];
+	    	            arrResultados.refresh();
+	    	            */
+	    			}
+						
+					
+					// Revisar que _idtabla exista
+					if(arrResultados.length>0){
+						if(_idtabla!=""  &&  boolRevisaExisteIdTabla==false){
+							if(revisaExisteIdTabla(arrResultados[0])==false){
+								return;
+							}
+						}
+					}
+					
+					
+					// Busca items previamente seleccionados/checados
+					buscaItemsSeleccionados(arrResultados);
+					
+					
+					
+					
+					// Regs x Pagina = Todos
+					if(regsporpag==0){	
+						contAtrasSiguiente.visible = false;				
+						cbx_pags.dataProvider=new ArrayCollection();
+						gridResultados.dataProvider = arrResultados;		
+						totalpags = 1;
+						totalregs = arrResultados.length;	
+						numPrimerRegistro = 1;	
+						txtResultados.text = "(Página 1 de 1, Registros del 1 al "+arrResultados.length.toString()+" de "+arrResultados.length.toString()+")";
+						loader.dp.removeLoader();
+						popUpImpresion.enabled = true;
+						if(optimizeColumns){
+							optimiseGridColumns(gridResultados);
+						}
+						return;
+					}
+					
+					
+					
+					// Habilitando botones de paginacion
+					contAtrasSiguiente.visible=true;	
+					masmenos.visible = true;										
+					contenedor_paginacion.visible = true;				
+					cbx_pags.enabled = true;			
+					
+					
+						
+					
+					
+					// Genera Numeros de Página
+					var firstPage:int = paginaActual;
+					var lastPage:int  = (totalpags<pagsmostradas ? totalpags : pagsmostradas+(paginaActual-1));
+					
+					if(lastPage>totalpags) lastPage=totalpags;
+					
+					if(totalpags<=5){
+						firstPage = 1;
+						lastPage  = totalpags;
+					}else{
+						if(paginaActual-2 > 0){ //5-2=3   4-2=2  3-2=1   2-2=0
+							firstPage = paginaActual-2; //5-2=3						
+							if(paginaActual+2 <= totalpags){ //5+2= 7 <= 15
+								lastPage = paginaActual+2;
+							}						
+							if(lastPage==totalpags){							
+								firstPage=lastPage-4;
+							}						
+						}else{
+							if(paginaActual == 2){ //pag 2
+								firstPage = 1;
+								lastPage = (totalpags>5) ? 5 : totalpags;
+							}
+						}
+					}
+					
+					
+					for(var i:int=firstPage;i<=lastPage;i++){
+						var link:LinkButton = new LinkButton();
+						link.label = String(i);
+						link.data = i;
+						link.doubleClickEnabled = false;
+						if(i==paginaActual){
+							link.setStyle("fontWeight","bold");
+							link.setStyle("textDecoration","underline");
+							link.setStyle("fontSize","13");							
+						}else{
+							link.addEventListener(MouseEvent.CLICK, filtrarPags);	
+						}			
+						if(i<totalpags+1)contenedor_paginacion.addChild(link);
+					}
+					
+					
+					
+					// Imprimiendo Detalle de paginación					
+					numPrimerRegistro  = (totalregs==0 ? 0 : (offset)); 
+					txtResultados.text = "(Página "+paginaActual+" de "+totalpags+(totalpags==1?" Página, ":" Páginas, ")+"Registros del "+numPrimerRegistro+" al "+((offset+regsporpag)>totalregs ? totalregs : offset+regsporpag)+" de "+totalregs+")";
+					
+					
+					
+					// Cargando páginas en combo
+					var pagsarr:ArrayCollection = new ArrayCollection();
+					for(var j:int=1;j<=totalpags;j++){
+						pagsarr.addItem({ini:j, label: "Página "+j});
+					}
+					cbx_pags.dataProvider  = pagsarr;
+					cbx_pags.selectedIndex = paginaActual-1;		
+					
+					
+					
+					// Habilita/Deshabilita botones de atras y siguiente de ser necesario
+					btn_atraspags.visible    = true;
+					btn_adelantepags.visible = true;
+					
+					if(paginaActual>1){
+						btn_atraspags.enabled = true;
+					}
+					if(paginaActual==1){
+						btn_atraspags.enabled = false;
+					}
+					if(paginaActual==(totalpags)){					
+						btn_adelantepags.enabled = false;
+					}
+					if(paginaActual<(totalpags)){
+						btn_adelantepags.enabled = true;
+					}		
+					
+					
+					// Carga resultados al Grid
+					gridResultados.dataProvider = arrResultados;
+					
+					
+					// Habilita la opción de impresion
+					popUpImpresion.enabled = true;
+					
+					
+					// Autoajustar ancho de columnas	
+					if(optimizeColumns){
+						optimiseGridColumns(gridResultados);
+					}	
+				}catch(ex:Error){
+					if(useLocalDataProvider){
+						loader.msgAviso("setPaginacion->Ocurrió un problema al recibir los datos",3,ex);
+					}else{
+						loader.dp.reintentarHttpService("setPaginacion->Ocurrió un problema al recibir los datos",_wsFiltrar,ex);
+					}
+				}		
+			}
+			
+			
+			public function filtrarPags(evt:MouseEvent):void{
+				if(paginaActual != parseInt(evt.target.data)){
+					paginaActual = parseInt(evt.target.data);
+					offset=((parseInt(evt.target.data)-1)*regsporpag);
+					buscaRespuestas();
+				}
+			}
+			
+			public function filtrarPagsCombo(ini:int):void{
+				paginaActual = ini;
+				offset=((ini-1)*regsporpag);
+				buscaRespuestas();
+			}
+			
+			public function filtrarRegsPagina():void{
+				if(txtResultados.text!=""){
+					regsporpag=cbx_regs_pags.selectedItem.regs;
+					filtrarPagsCombo(1);
+				}
+			}
+			
+			public function atraspags():void{
+				if(txtResultados.text!=""){
+					var total:int = totalregs;
+					var pags:int = (int(total/regsporpag)+1);
+					if(paginaActual>1){
+						paginaActual--;
+					}
+					offset=((paginaActual-1)*regsporpag);
+					buscaRespuestas();
+				}
+			}
+			
+			
+			public function adelantepags():void{
+				if(txtResultados.text!=""){
+					var total:int = totalregs;
+					var pags:int = (int(total/regsporpag)+1);
+					if(paginaActual<pags){
+						paginaActual++;
+					}				
+					offset=((paginaActual-1)*regsporpag);
+					buscaRespuestas();
+				}
+			}
+			/******** GRID_PAGINADO ********/
+			
+			
+			
+	        
+	        
+	       
+	        
+			/*********** Opciones *************/
+			private function headerWordWrapChange():void{
+				headerWordWrap=!headerWordWrap;
+				for(var i:int=0;i<gridResultados.columns.length;i++){
+					(gridResultados.columns[i] as DataGridColumn).headerWordWrap = headerWordWrap;
+				}
+			}	
+			
+			
+			private function showHorizontalScrollChange():void{
+				showHorizontalScroll = !showHorizontalScroll;
+				
+				if(showHorizontalScroll==true){
+					lockColumns = true;
+					gridResultados.horizontalScrollPolicy = "auto";
+					
+					//columna checkbox necesaria solo cuando es catalogo o cuando deseas imprimir
+					if(showCheckBoxColumn==1 || (showCheckBoxColumn==0 && (isCatalogo || showBtnImprimir))){
+						if(lockColumns && _arrFooters.length==0) gridResultados.lockedColumnCount=2;			
+					}else{
+						if(lockColumns && _arrFooters.length==0) gridResultados.lockedColumnCount=1; //
+					}
+				}else{
+					lockColumns = false;
+					gridResultados.horizontalScrollPolicy = "off";
+					gridResultados.lockedColumnCount = 0;
+				} 
+			}	
+			
+			
+			private function headerReleaseFunction(event:DataGridEvent):void{
+				var dg:DataGrid = DataGrid(event.currentTarget);
+                var column:DataGridColumn = dg.columns[event.columnIndex];
+				var dataField:String = (column.dataField==null? "" : column.dataField);
+
+				//Evitar que el DG ordene localmente, query se encarga de ello
+				event.preventDefault();  
+				
+				if(dataField!="" && dataField!="checkedDG"){
+					orderBy_Tipo = "S";
+					for(var i:int=0;i<_arrPropiedades.length;i++){
+						if(String(_arrPropiedades[i].dataField) == dataField && _arrPropiedades[i].tipo){
+							switch(String(_arrPropiedades[i].tipo).toUpperCase()){
+								case "N":
+								case "NUMERO":
+								case "NUMBER":
+									orderBy_Tipo = "N";
+									break; 		
+									
+								case "F":
+								case "FECHA":
+								case "DATE":
+									orderBy_Tipo = "F";
+									sortCompareFn = column.sortCompareFunction;									
+									break; 
+							}
+							break;
+						} 
+					}
+					
+					if(orderBy == dataField){
+						ascOrder = !ascOrder;						
+					}else{
+						ascOrder = true;
+					}  
+					orderBy = dataField;					
+					buscaNewRespuestas();
+				}
+			}
+			
+			
+			
+			
+			
+			/******** View/Hide Columns ********/
+			private function cargaColsDisponibles(revisaValores:Boolean):void{
+				var colsImpresion:Array = gridResultados.columns;
+				
+				revisaValores = (revisaValores && !(vboxColumnasImpresion.getChildAt(0) as MultilineCheckBox).selected)
+				
+				for(var i:int=0;i<colsImpresion.length;i++){
+					var col:DataGridColumn = colsImpresion[i] as DataGridColumn;
+					
+					if(col.dataField!="checkedDG"){ //&& col.visible==true						
+						var chx:MultilineCheckBox = new MultilineCheckBox();
+						chx.label = (col.headerText == "") ? "---" : col.headerText;
+						chx.percentWidth=100;
+						chx.name = i.toString();						
+						if(revisaValores){
+							chx.selected = col.visible;
+						}
+						chx.setStyle("fontWeight","bold");
+						chx.addEventListener(Event.CHANGE,colImpresionChange);							
+						vboxColumnasImpresion.addChild(chx);	
+					}
+				}
+			}
+			
+			private function colImpresionChange(event:Event):void{
+				var chb:MultilineCheckBox;
+				
+				if(event.currentTarget.name=="todas"){
+					if((vboxColumnasImpresion.getChildAt(0) as MultilineCheckBox).selected == true){
+						if(vboxColumnasImpresion.numChildren>1){
+							for(var i:int=1;i<vboxColumnasImpresion.numChildren;i++){
+								chb = (vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox);				
+								chb.selected = false;
+								(gridResultados.columns[int(chb.name)] as DataGridColumn).visible = true;			
+							}	
+						}
+					}else{
+						if(vboxColumnasImpresion.numChildren>1){
+							for(var j:int=1;j<vboxColumnasImpresion.numChildren;j++){
+								chb = (vboxColumnasImpresion.getChildAt(j) as MultilineCheckBox);	
+								(gridResultados.columns[int(chb.name)] as DataGridColumn).visible = false;			
+							}	
+						}
+					}	
+				}else{
+					(vboxColumnasImpresion.getChildAt(0) as MultilineCheckBox).selected = false;
+					if(vboxColumnasImpresion.numChildren>1){
+						for(var k:int=1;k<vboxColumnasImpresion.numChildren;k++){
+							chb = (vboxColumnasImpresion.getChildAt(k) as MultilineCheckBox);	
+							(gridResultados.columns[int(chb.name)] as DataGridColumn).visible = chb.selected;										
+						}	
+					}
+				}
+				
+				if(optimizeColumns){
+					optimiseGridColumns(gridResultados);
+				}
+			}
+			/******** View/Hide Columns ********/
+			
+			
+			
+			
+			
+			/******** AUTO AJUSTAR COLUMNAS DEL GRID ********/
+			private function optimizeColumnsChange():void{
+				optimizeColumns = !optimizeColumns;
+				if(optimizeColumns){
+					optimiseGridColumns(gridResultados);
+				}	
+			}
+			
+			public function optimiseGridColumns(dg:DataGrid):void {
+                var dgCol:DataGridColumn;
+                var renderer:UITextField;
+                var tf:TextFormat;
+                var col:int;
+ 
+                if (dg.columnCount > 0 && dg.dataProvider != null) {
+                // initialize widths array
+                       var widths:Array = new Array (dg.columnCount);
+                        for (col = 0; col < widths.length; ++col) {
+                                widths[col] = -1;
+                        }
+ 
+                // go through each data item in the grid, estimate
+                // the width of the text in pixels
+                        for each (var item:Object in dg.dataProvider) {
+                                for (col = 0; col < widths.length; ++col) {
+                                        renderer = new DataGridItemRenderer();
+                                        // Must add to datagrid as child so that it inherits
+                                        // properties essential for text width estimation,
+                                        // such as font size
+                                        dg.addChild(renderer);
+ 
+                                        dgCol = dg.columns[col] as DataGridColumn;
+                                        renderer.text = dgCol.itemToLabel(item);
+                                        widths[col] = Math.max(renderer.measuredWidth + 10,widths[col]);
+ 
+                                        // remove renderer from datagrid when we're done
+                                        dg.removeChild(renderer);
+                                }
+                        }
+ 
+                        // go through headers in the grid, estimate the width of
+                        // the text in pixels, assuming the text is bold
+                        for (col = 0; col < widths.length; ++col) {
+                                // it's ok to reuse renderer, but I chose not
+                                // to for safety reasons. Optimize if needed.
+                                renderer = new DataGridItemRenderer();
+ 
+                                // Must add to datagrid as child so that it inherits
+                                // properties essential for text width estimation,
+                                // such as font size
+                                dg.addChild(renderer);
+ 
+                                dgCol = dg.columns[col] as DataGridColumn;
+                                renderer.text = dgCol.headerText;
+ 
+                                tf = renderer.getTextFormat();
+                                tf.bold = true;
+                                renderer.setTextFormat (tf);
+ 
+                                widths[col] = Math.max(renderer.measuredWidth + 25, widths[col]);
+ 
+                                // remove renderer from datagrid when we're done
+                                dg.removeChild(renderer);
+                        }
+ 
+                        // set width of columns to determined values
+                        for (col = 0; col < widths.length; ++col)
+                        {
+                                if (widths[col] != -1 && dg.columns[col].visible)
+                                {
+                                        dg.columns[col].width = widths[col];
+                                }
+                        }
+                        
+                        if(showCheckBoxColumn==1 || (showCheckBoxColumn==0 && (isCatalogo || showBtnImprimir))){
+                        	dg.columns[1].width=30;
+                        }
+                }
+           }
+           /******** AUTO AJUSTAR COLUMNAS DEL GRID ********/ 
+ 
+
+			// Evento Click en alguno de los botones de Nuevo, Editar, Borrar o Copiar
+			private function catalogoClick(strAccion:String):void{
+				if(strAccion=="BORRAR"){
+					if(arrRegistrosSeleccionados.length==0 && gridResultados.selectedItem==null){
+						loader.msgAviso("Seleccione un registro",2);
+					}else{
+						borrarRegistro();
+					}
+				}else{
+					if((strAccion=="EDITAR" || strAccion=="COPIAR") && gridResultados.selectedItem==null){
+						loader.msgAviso("Seleccione un registro",2);
+					}else{
+						
+						var ventana:contenedorSt = new contenedorSt();
+						PopUpManager.addPopUp(ventana,this.parentApplication as DisplayObject,true);
+						ventana._padreSuperGrid = this;
+			        	ventana.strAccion = strAccion;
+			        	
+			        	switch(strAccion){
+			        		case "NUEVO":
+			        			ventana.title = "Nuevo Registro";
+			        			break;
+			        		case "EDITAR":
+			        			ventana.title = "Editar Registro";
+			        			ventana.item  = gridResultados.selectedItem;
+			        			break;
+			        		case "COPIAR":
+			        			ventana.title = "Copiar Registro";
+			        			ventana.item  = gridResultados.selectedItem;
+			        			break;			        			
+			        	}
+			        		        	
+			        	PopUpManager.centerPopUp(ventana);						
+					}	
+				}
+			}
+			
+			
+			
+			
+			/************ Normas de Busqueda ************/
+			public function agregaNorma(_fromNorma:normaBusqueda):void{
+				var norma:normaBusqueda = new normaBusqueda();
+				norma._padreSuperGrid = this;
+				norma._arrColumnas   = _arrColumnas;				
+				if(_fromNorma!=null) norma._fromNorma = _fromNorma;
+				vboxNormas.addChild(norma); 			
+			}
+			
+			public function borraNorma(norma:normaBusqueda):void{
+				vboxNormas.removeChild(norma);
+			}
+			
+			private function resetNormas():void{
+				vboxNormas.removeAllChildren();
+			}
+			
+			public function existenFiltros():Boolean{
+				return (strBusquedaUtilizada!="" || getArrNormas().length>0);
+			}
+			
+			public function getArrNormas():Array{
+				var arrNormas:Array = new Array();
+				for(var i:int=0;i<vboxNormas.numChildren;i++){
+					arrNormas.push((vboxNormas.getChildAt(i) as normaBusqueda).getObjNorma());
+				}
+				return arrNormas;
+			}
+			/************ Normas de Busqueda ************/
+			
+			
+			
+			
+			// actualiza las columnas disponibles para impresion
+			private function refreshPopUpTabla():void{
+				if(vboxColumnasImpresion.numChildren>1){
+					var o:* = vboxColumnasImpresion.getChildAt(0);
+					vboxColumnasImpresion.removeAllChildren();
+					vboxColumnasImpresion.addChild(o);
+					cargaColsDisponibles(true);
+				}
+			}
+			
+			
+			
+			
+			public function getDistinctValuesFromColumn(dataField:String):Array{
+				var arrDatos:ArrayCollection = gridResultados.dataProvider as ArrayCollection;
+				var arr:Array=new Array();
+				var obj:Object = new Object();
+				
+				for(var i:int=0;i<arrDatos.length; i++){
+					if(String(arrDatos[i][dataField])!=""){
+						obj[arrDatos[i][dataField]] = arrDatos[i][dataField];
+					} 
+				}
+				
+				for (var texto:String in obj){
+					arr.push(texto);
+				}
+				
+				arr.sort();
+				return arr;
+			}
+			
+			
+			/************ Permisos ************/
+			public function quitarConsultar():void{
+				canSearchRows = false;
+			}
+			
+			public function quitarNuevo():void{
+				btnNuevo.visible = false;
+				btnNuevo.includeInLayout = false;
+			}
+			
+			public function quitarEditar():void{
+				btnEditar.visible = false;
+				btnEditar.includeInLayout = false;
+			}
+			
+			public function quitarBorrar():void{
+				btnBorrar.visible = false;
+				btnBorrar.includeInLayout = false;
+			}
+			
+			public function quitarCopiar():void{
+				btnCopiar.visible = false;
+				btnCopiar.includeInLayout = false;	
+			}
+			
+			public function quitarImprimir():void{
+				showBtnImprimir = false;	
+			}
+		]]>
+	</mx:Script>
+
+	<mx:Fade id="fadeIn" duration="1000" alphaFrom="0.0" alphaTo="1.0"/>
+	<mx:Parallel id="fadeOut" duration="1000">
+        <mx:Zoom />
+        <mx:Fade />
+    </mx:Parallel>
+            	
+    <mx:CurrencyFormatter id="idCurrencyFormatter" precision="2" useThousandsSeparator="true" decimalSeparatorFrom="." thousandsSeparatorFrom="," useNegativeSign="true" rounding="none" />        	
+	<mx:DateFormatter id="idDateFormatter" formatString="MMMM D, YYYY" />
+
+		
+	<mx:VBox id="vboxPaginacion" width="100%" height="100%" verticalGap="0" creationPolicy="all">
+		<mx:HBox width="100%" borderStyle="solid" horizontalAlign="center" horizontalGap="0" verticalAlign="middle" paddingTop="0" 
+				 paddingBottom="0" paddingRight="3" backgroundColor="#DEDEDE" backgroundAlpha=".5"  creationPolicy="all">
+			<mx:HBox id="hboxBusqueda" width="100%" verticalAlign="middle">
+				<mx:Label text="Busqueda:" />
+				<mx:TextInput id="txtTexto" enter="{buscaNewRespuestas()}" width="250" textAlign="left" change="{txtTextoChange()}" />
+				<mx:LinkButton icon="{Iconos.SEARCH_small}" click="{buscaNewRespuestas()}" toolTip="Filtrar" />				
+			</mx:HBox>
+			
+			
+			<mx:PopUpButton id="popUpBusqueda" icon="{Iconos.FIND16}" toolTip="Busqueda Avanzada" openAlways="true" >
+	            <mx:popUp>
+	                <actionscripts:SuperPanel id="ventanaNormas" backgroundAlpha="1" backgroundColor="#FFFFFF" title="Búsqueda Avanzada" allowClose="true" close="popUpBusqueda.close();" 
+											  cornerRadius="9"  paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5" allowDrag="true" verticalScrollPolicy="off" 
+											  horizontalScrollPolicy="off" creationPolicy="all">
+	                    <mx:VBox cornerRadius="9" borderStyle="solid" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5" width="100%">
+	                    	<mx:VBox width="100%">
+								<mx:HBox backgroundColor="#DEDEDE" backgroundAlpha=".5" borderStyle="solid"  cornerRadius="9" width="100%" horizontalAlign="center">
+									<mx:Label text="Búsqueda Avanzada" fontWeight="bold" />
+								</mx:HBox>
+								
+								<mx:HRule width="100%" />
+								
+								<mx:VBox id="vboxNormas" width="540" height="112" paddingRight="9" horizontalScrollPolicy="off" creationPolicy="all"/>
+							</mx:VBox>
+	                    	
+	                    	<mx:HRule width="100%" />
+	                    	
+	                    	<mx:HBox width="100%">
+	                    		<mx:Label text="Normas a Coincidir" />
+	                    		<mx:ComboBox id="cbTipoUnion" labelField="descripcion" selectedIndex="0" textAlign="left">
+	                    			<mx:dataProvider>
+	                    				<mx:Array>
+	                    					<mx:Object tipo="1" descripcion="todas" /> <!-- WHERE x1 AND x2 AND x3.. -->
+	                    					<mx:Object tipo="2" descripcion="cualquiera" /> <!-- WHERE x1 OR x2 OR x3.. -->
+	                    				</mx:Array>
+	                    			</mx:dataProvider>
+	                    		</mx:ComboBox>
+	                    		
+	                    		<mx:Spacer width="100%" />
+	                    		
+	                    		<mx:LinkButton icon="{Iconos.SEARCH_small}" click="{buscaNewRespuestas()}" toolTip="Filtrar" />
+	                    		<mx:LinkButton icon="{Iconos.CLEAN16}" click="{resetNormas()}" toolTip="Limpiar" /> <!-- ICON_UNDO16 -->
+	                    		<mx:LinkButton icon="{Iconos.ICON_MAS}"  click="{agregaNorma(null)}"  toolTip="Agregar Norma" />
+	                    	</mx:HBox>
+	                    		
+	                    </mx:VBox>	                    
+	                </actionscripts:SuperPanel>
+	            </mx:popUp>
+	        </mx:PopUpButton>
+	        
+	        
+			<mx:PopUpButton id="popUpTabla" icon="{Iconos.PROCESOS16}" toolTip="Opciones de la Tabla" openAlways="true">
+	            <mx:popUp>
+	                <actionscripts:SuperPanel backgroundAlpha="1" show="{refreshPopUpTabla()}" title="Opciones de la Tabla" backgroundColor="#FFFFFF" allowClose="true" close="popUpTabla.close();" cornerRadius="9"  paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5" allowDrag="true" verticalScrollPolicy="off" horizontalScrollPolicy="off">
+	                    <mx:HBox cornerRadius="9" borderStyle="solid" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+	                    	<mx:HBox width="100%">
+								<mx:VBox>
+									<mx:HBox backgroundColor="#DEDEDE" backgroundAlpha=".5" borderStyle="solid"  cornerRadius="9" width="100%" horizontalAlign="center"><mx:Label text="Opciones de la Tabla" fontWeight="bold" /></mx:HBox>
+									<mx:HRule width="100%" />
+									<mx:CheckBox selected="{wordWrap}" label="Ajuste automático de línea" change="{wordWrap=!wordWrap}" fontWeight="bold" />
+			                    	<mx:CheckBox selected="{variableRowHeight}" label="Altura variable de renglones" change="{variableRowHeight=!variableRowHeight}" fontWeight="bold" />
+			                    	<mx:CheckBox selected="{headerWordWrap}" label="Altura variable de titulos" change="{headerWordWrapChange()}" fontWeight="bold" />			                    	
+			                    	<mx:CheckBox selected="{optimizeColumns}" label="Ajuste automático de columnas" change="{optimizeColumnsChange()}" fontWeight="bold" />
+			                    	<mx:CheckBox selected="{showHorizontalScroll}" label="Ver Barra Horizontal" change="{showHorizontalScrollChange()}" fontWeight="bold" />
+								</mx:VBox>
+								
+								<mx:VRule height="100%" width="5"  />
+								
+								<mx:VBox>
+									<mx:HBox backgroundColor="#DEDEDE" backgroundAlpha=".5" borderStyle="solid" cornerRadius="9" width="100%" horizontalAlign="center"><mx:Label text="Columnas a Mostrar" fontWeight="bold" /></mx:HBox>
+									<mx:HRule width="100%" />
+									<mx:VBox id="vboxColumnasImpresion" creationComplete="{cargaColsDisponibles(false)}" width="180" height="140">
+										<actionscripts:MultilineCheckBox name="todas" change="{colImpresionChange(event)}" selected="true" label="Todas" fontWeight="bold" />		
+									</mx:VBox>	
+								</mx:VBox>
+	                    	</mx:HBox>
+	                    </mx:HBox>	                    
+	                </actionscripts:SuperPanel>
+	            </mx:popUp>
+	        </mx:PopUpButton>
+	        
+	        
+        	<mx:PopUpButton id="popUpImpresion" icon="{Iconos.PRINT16}" toolTip="Impresión" openAlways="true" enabled="false" visible="{showBtnImprimir}" includeInLayout="{showBtnImprimir}">
+	            <mx:popUp>
+	            	<SuperGrid:ventanaImpresion allowClose="true" close="popUpImpresion.close();" _padreGrid="{this}" width="100%"  />	            	
+	            </mx:popUp>
+	        </mx:PopUpButton>
+	        			
+		</mx:HBox>
+		
+		<!-- horizontalScrollPolicy="auto" -->
+		  
+		<footerDataGrid:FooterDataGrid id="gridResultados" resize="{onResize()}" 
+			allowMultipleSelection="{_allowMultipleSelection}"
+			doubleClickEnabled="{_doubleClickEnabled}" 
+			itemDoubleClick="{dblClick()}" 
+			itemClick="{dgItemClick(event)}"
+			editable="false" 
+			variableRowHeight="{variableRowHeight}" 
+			wordWrap="{wordWrap}"  
+			headerRelease="{headerReleaseFunction(event)}" 
+			width="100%" height="100%" 
+			horizontalGridLines="{_horizontalGridLines}" horizontalGridLineColor="{_horizontalGridLineColor}"
+			verticalGridLines="{_verticalGridLines}" verticalGridLineColor="{_verticalGridLineColor}"
+			rowColorFunction="{_rowColorFunction}"
+		>
+		<!--headerColors="{_headerColors}"-->		
+				<footerDataGrid:columns>
+		
+			
+				 	<mx:DataGridColumn headerText="" width="65" editable="false" sortable="false" draggable="false" dataField="checkedDG">
+				 		<mx:itemRenderer>
+				 			<mx:Component>
+				 				<mx:HBox width="100%" height="100%" backgroundColor="#DEDEDE" horizontalAlign="center" verticalAlign="middle" backgroundAlpha=".75">
+					 				<mx:Label id="milabel" xmlns:mx="http://www.adobe.com/2006/mxml" fontWeight="bold" />				 				
+					 				<mx:Script>
+									    <![CDATA[
+									    	import mx.collections.ArrayCollection;
+									    	
+									        override public function set data(value:Object):void {
+									            super.data = value;				
+									            try{
+									            	milabel.text = String(outerDocument.numPrimerRegistro + (outerDocument.gridResultados.dataProvider as ArrayCollection).getItemIndex(value));
+									            }catch(ex:Error){
+									            	
+									            }				
+									        }
+									    ]]>
+									</mx:Script>
+								</mx:HBox>
+							</mx:Component>
+				 		</mx:itemRenderer>
+				 	</mx:DataGridColumn>
+			
+			
+			
+			</footerDataGrid:columns>	
+			 
+			 
+			<!--
+			</mx:columns>
+			
+			
+				<footerDataGrid:footer>
+					<footerDataGrid:SummaryFooter label="Hola Mundo">
+						<footerDataGrid:columns>
+							<footerDataGrid:SummaryColumn label="Calculadora de Prestamos" />							
+						</footerDataGrid:columns>
+					</footerDataGrid:SummaryFooter>
+				</footerDataGrid:footer>
+				
+				<footerDataGrid:footer>
+					<footerDataGrid:SummaryFooter label="Calculadora de Prestamos" />					
+				</footerDataGrid:footer>
+				
+				<footerDataGrid:footer>
+					<footerDataGrid:SummaryFooter label='Average' operation='sum' precision='2' useCurrencyFormatter="true" />
+				</footerDataGrid:footer>
+				
+				<footerDataGrid:footer>
+					<footerDataGrid:SummaryFooter>
+						<footerDataGrid:columns>
+							<footerDataGrid:SummaryColumn label="Calculadora de Prestamos" />							
+						</footerDataGrid:columns>
+					</footerDataGrid:SummaryFooter>
+				</footerDataGrid:footer>
+				
+				<local:footer>
+			        <local:SummaryFooter label='Average' operation='average' precision='2'/>
+			        <local:SummaryFooter label='Max' operation='max'/>
+			    </local:footer>
+	
+				 <local:SummaryFooter>
+		            <local:columns>
+		                <local:SummaryColumn label='Total'/>
+		                <local:SummaryColumn />
+		                <local:SummaryColumn operation='sum' precision='2'/>
+		            </local:columns>
+		        </local:SummaryFooter>
+		        
+		        <local:SummaryFooter>
+		            <local:columns>
+		                <local:SummaryColumn label='Average'/>
+		                <local:SummaryColumn />
+		                <local:SummaryColumn operation='average' precision='2'/>
+		            </local:columns>
+		        </local:SummaryFooter>
+	        
+	        
+				<footerDataGrid:footer>
+					<footerDataGrid:SummaryFooter>
+						<footerDataGrid:columns>
+							<footerDataGrid:SummaryColumn />
+							<footerDataGrid:SummaryColumn label="Total" />
+							<footerDataGrid:SummaryColumn />							
+							<footerDataGrid:SummaryColumn labelFunction="lf_totalPago"   />
+							<footerDataGrid:SummaryColumn labelFunction="lf_totalCapital" />
+							<footerDataGrid:SummaryColumn labelFunction="lf_totalInteres" />							
+							<footerDataGrid:SummaryColumn />
+						</footerDataGrid:columns>
+					</footerDataGrid:SummaryFooter>
+				</footerDataGrid:footer>
+		
+				
+			--> 
+			 
+		</footerDataGrid:FooterDataGrid>	 
+        
+        
+                 
+        
+		<mx:HBox width="100%" borderStyle="solid" horizontalAlign="center" horizontalGap="0" verticalAlign="middle" paddingTop="0" paddingBottom="0" paddingRight="3" backgroundColor="#DEDEDE" backgroundAlpha=".5"  >
+			<mx:HBox width="33%" verticalAlign="middle">
+				<mx:HBox id="hbBotones" visible="{isCatalogo}" includeInLayout="{isCatalogo}" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0" horizontalGap="0">
+					<mx:LinkButton id="btnNuevo" icon="{Iconos.FILENEW16}" toolTip="Nuevo" click="{catalogoClick('NUEVO')}" />	
+					<mx:LinkButton id="btnEditar" icon="{Iconos.FILEEDIT16}" toolTip="Editar" click="{catalogoClick('EDITAR')}" />
+					<mx:LinkButton id="btnBorrar" icon="{Iconos.REMOVE16}" toolTip="Borrar" click="{catalogoClick('BORRAR')}" />
+					<mx:LinkButton id="btnCopiar" icon="{Iconos.FILECOPY16}" toolTip="Copiar" click="{catalogoClick('COPIAR')}" />					
+					<mx:Label text=" | " fontFamily="Arial" fontSize="11" fontWeight="normal" />	
+				</mx:HBox>				
+				<mx:Text id="txtResultados" text=""  fontFamily="Arial" fontSize="11" fontWeight="normal"/>
+			</mx:HBox>
+			<mx:HBox horizontalAlign="center" verticalAlign="middle" id="contenedor_paginacion" width="34%" horizontalGap="2"/>
+			<mx:HBox width="33%" id="masmenos" horizontalAlign="right" verticalAlign="middle" horizontalGap="0">
+				<mx:HBox id="contAtrasSiguiente" verticalAlign="middle" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0" height="25">
+					<mx:Button id="btn_atraspags" toolTip="Página Anterior" label="&lt;"  enabled="false" height="17" fontWeight="normal" width="30" click="{atraspags()}" doubleClickEnabled="false" />
+					<mx:Button  id="btn_adelantepags" toolTip="Página Siguiente" label="&gt;"  enabled="false" height="17" fontWeight="normal" width="30" click="{adelantepags()}" doubleClickEnabled="false" />
+					<mx:Label text=" | " fontFamily="Arial" fontSize="11" fontWeight="normal" />
+					<mx:ComboBox id="cbx_pags" toolTip="Páginas Disponibles" labelField="label" width="100" enabled="true" height="20" change="{filtrarPagsCombo(cbx_pags.selectedItem.ini)}"/>
+					<mx:Label text=" | " fontFamily="Arial" fontSize="11" fontWeight="normal" />
+				</mx:HBox>
+				
+				<mx:ComboBox id="cbx_regs_pags" toolTip="Registros por Página" height="20" width="75" creationComplete="{cbx_regs_pags.selectedIndex=0}" labelField="label" change="{filtrarRegsPagina()}">
+					<mx:dataProvider>
+						<mx:Array>
+							<mx:Object regs="100" label="100" />
+							<mx:Object regs="200" label="200" />
+							<mx:Object regs="500" label="500" />
+							<mx:Object regs="0" label="Todos" /> 
+						</mx:Array>
+					</mx:dataProvider>
+				</mx:ComboBox>
+			</mx:HBox>
+		</mx:HBox>
+	</mx:VBox>
+		
+</mx:VBox>

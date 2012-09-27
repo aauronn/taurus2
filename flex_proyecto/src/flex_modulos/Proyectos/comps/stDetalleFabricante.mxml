@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				layout="vertical" width="100%" height="100%"
+				title="Detalle Fabricantes" showCloseButton="true" 
+				close="titlewindow1_closeHandler(event)"  
+				xmlns:ns="flex_modulos.catalogos.Fabricantes.*"
+				creationComplete="init(event)">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.Iconos;
+			import actionscripts.Serializer;
+			import actionscripts.Utils;
+			
+			import flex_modulos.catalogos.Fabricantes.Fabricantes;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.CollectionEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padre:stProyectos;	
+			
+			[Bindable] private var contador:int=0;
+			
+			[Bindable] public var acAgregar:ArrayCollection = new ArrayCollection();
+			[Bindable] public var acBorrar:ArrayCollection = new ArrayCollection();
+			[Bindable] public var acModificar:ArrayCollection = new ArrayCollection();
+			[Bindable] public var acCopia:ArrayCollection = new ArrayCollection();
+			
+			[Bindable] public var dicFabricantes:Dictionary = new Dictionary();
+			
+			protected function init(event:FlexEvent):void
+			{
+				acCopia.source = Utils.clone(_padre.ACFabricantes.source);
+				setIdInterno();
+				//dicFabricantes[]
+				acCopia.addEventListener(CollectionEvent.COLLECTION_CHANGE, sumarFabricantesDlls);
+				
+				funcionSumar();
+			//	Alert.show(Utils.print_r(acCopia));
+			}
+			
+			protected function btnAgregar_clickHandler(event:MouseEvent):void
+			{
+				var ventanaAgregarFabricante:detalleFabricante2 = new detalleFabricante2();
+				ventanaAgregarFabricante._padre = this;
+				ventanaAgregarFabricante.width = this.width;
+				PopUpManager.addPopUp(ventanaAgregarFabricante,this, true);
+				PopUpManager.centerPopUp(ventanaAgregarFabricante);
+			}
+			
+			public function editarFabricante():void{
+				var ventanaAgregarFabricante:detalleFabricante2 = new detalleFabricante2();
+				ventanaAgregarFabricante._padre = this;
+				ventanaAgregarFabricante.width = this.width;
+				ventanaAgregarFabricante.item = dgFabricantes.selectedItem;
+				ventanaAgregarFabricante.strAccion = "EDITAR";
+				PopUpManager.addPopUp(ventanaAgregarFabricante,this, true);
+				PopUpManager.centerPopUp(ventanaAgregarFabricante);
+			}
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				PopUpManager.removePopUp(this);
+				_padre.ACFabricantes.removeAll();
+				_padre.ACFabricantes.source = Utils.clone(acCopia.source);
+				_padre.generarFabricantes();
+				_padre.strFabricantesAgregar = Serializer.serialize(acAgregar.source);
+				_padre.strFabricantesBorrar = Serializer.serialize(acBorrar.source);
+			}
+			
+			public function removerFabricante(event:MouseEvent):void
+			{
+				Alert.okLabel = "Si";
+				Alert.noLabel = "No";
+				
+				Alert.show("Desea eliminar al fabricante "+dgFabricantes.selectedItem.fabricante +", con el monto de: $"+dgFabricantes.selectedItem.monto_dlls,
+					"Eliminar",Alert.NO | Alert.OK,this, removerCompleto, Iconos.MESSAGEBOX_WARNING);
+			}
+			
+			private function removerCompleto(eventObj:CloseEvent):void{
+				if (eventObj.detail==Alert.OK) {
+					acCopia.removeItemAt(dgFabricantes.selectedIndex);
+					acCopia.refresh();
+					actualizarPorcentajes(acCopia);
+					acCopia.refresh();
+					setIdInterno(); 
+					
+					Alert.okLabel = "OK";
+					
+					Alert.show("Eliminado", "Eliminado", Alert.OK, this, null,Iconos.MESSAGEBOX_OK);
+				}
+					
+			}
+			
+			public function sumarFabricantesDlls(event:CollectionEvent):void
+			{
+				if(event.kind!="update"){
+					if(event.kind=="add"){
+						acAgregar.addItem(event.items[0]);
+					}
+					if(event.kind=="remove"){
+						if (event.items[0].hasOwnProperty("idpf")==true){
+							acBorrar.addItem(event.items[0]);
+							
+						}else {
+							for (var i:int=0; i<acAgregar.length; i++){
+								if(event.items[0].id_interno == acAgregar[i].id_interno){
+									acAgregar.removeItemAt(i);
+								}
+							}
+						}
+						
+					}
+					
+				}
+				
+				funcionSumar();
+			}
+		
+			public function funcionSumar():void{
+				lblTotalDlls.text="";
+				var totalDlls:Number = 0;
+				for (var i:int=0;i<acCopia.length; i++)
+				{
+					totalDlls+=acCopia[i].monto_dlls;
+				}
+				lblTotalDlls.text=_padre.Price.format(totalDlls+"");
+				_padre.txtMontoProbable.text=_padre.Price.format(totalDlls+"");
+				_padre.montoProbable = totalDlls;
+			}
+			
+			public function sumarPorcentajes():void{
+				var totalPorcentaje:Number = 0.0;
+				for (var i:int=0;i<acCopia.length; i++)
+				{
+					totalPorcentaje+=acCopia[i].porcentaje;
+					if(totalPorcentaje<=100.0){
+						
+					}else{
+						Alert.show("La suma de Fabricantes es mas del 100%","Error");
+					}
+				}
+				//lblPorcentaje.text=totalPorcentaje+"%";
+			}
+			
+			public function generarCostos():void{
+				lblTotalDlls.text="";
+				var montoProbable:int = 0;
+				montoProbable=0;
+				for (var i:int=0;i<acCopia.length; i++)
+				{
+					montoProbable += acCopia[i].monto;
+					//lblFabricantes.htmlText+="<b>"+ACFabricantes[i].fabricante+"</b> - "+ACFabricantes[i].porcentaje +"%   |   ";
+				}
+				//txtMontoProbable.text=montoProbable+"";
+				//lblPorcentaje.text = _padre.Price.format(montoProbable+"");
+				
+			}
+			
+			public function setIdInterno():void{
+				for (contador; contador<acCopia.length; contador++){
+					acCopia[contador].id_interno = contador;
+				}
+				acCopia.refresh();
+			}
+			
+			public function nuevoObjeto(ac:ArrayCollection):void{
+				ac[0].id_interno = contador+1;
+				acCopia.addItem(ac)
+			}
+			
+			public function actualizarPorcentajes(arr:ArrayCollection):void{
+				var y:int = 0;
+				var x:int = 0;
+				
+				for (var i:int=0;i<arr.length; i++)
+				{
+					y+=arr[i].monto_dlls;
+					
+				}
+				for (var j:int=0;j<arr.length; j++)
+				{
+					x = int(arr[j].monto_dlls);
+					arr[j].porcentaje = numberFormatter.format((x*100)/y);
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:VBox width="100%" verticalScrollPolicy="auto">
+		<mx:HBox width="100%">
+			<mx:LinkButton id="btnAgregar" label="Agregar Fabricante" icon="{Iconos.ADD16}" click="btnAgregar_clickHandler(event)"/>
+		</mx:HBox>
+		
+		<mx:HRule width="100%"/>
+		<mx:DataGrid id="dgFabricantes" width="100%" columns="{columnasGrid}" dataProvider="{acCopia}">
+			
+		</mx:DataGrid>
+		<mx:HRule width="100%"/>
+		<mx:HBox width="100%">
+			<mx:Label id="lblTexto1" text="Total Dlls: "/>
+			<mx:Label id="lblTotalDlls" text="34123123.00"/>
+			<!--
+			<mx:Label id="lblTexto2" text="Porcentaje: "/>
+			<mx:Label id="lblPorcentaje" />
+			-->
+		</mx:HBox>
+	</mx:VBox>
+	
+	<fx:Declarations>
+		<s:ArrayCollection id="ACFabricantes"/>
+		
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="fabricante" headerText="Fabricante" width="200" />
+			<mx:DataGridColumn dataField="nombre_sbu" headerText="SBU" width="200" dataTipField="nombre_sbu" showDataTips="true"/>
+			<mx:DataGridColumn dataField="monto_dlls" headerText="$$" width="80" />
+			<mx:DataGridColumn dataField="porcentaje" headerText="Porcentaje" width="100" />	
+			<mx:DataGridColumn headerText="" width="50" textAlign="center">
+				<mx:itemRenderer>
+					<fx:Component>
+						<mx:HBox>
+							<fx:Script>
+								<![CDATA[
+									import actionscripts.Iconos;
+								]]>
+							</fx:Script>
+							<mx:LinkButton id="lkbEditar" icon="{Iconos.FILEEDIT16}" click="{outerDocument.editarFabricante()}" includeInLayout="false" visible="false" />
+							<mx:LinkButton id="lkbRemover" icon="{Iconos.REMOVE16}" click="{outerDocument.removerFabricante(event)}"/>
+						</mx:HBox>
+					</fx:Component>
+				</mx:itemRenderer>
+			</mx:DataGridColumn>
+		</fx:Array>
+		
+		<mx:NumberFormatter id="numberFormatter" precision="2" rounding="nearest" />
+	</fx:Declarations>
+</mx:TitleWindow>

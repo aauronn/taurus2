@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				layout="vertical" width="100%" height="100%"
+				showCloseButton="true" close="titlewindow1_closeHandler(event)" closeButtonSkin="{Iconos.POPUP_CLOSE}"
+				creationComplete="init(event)" >
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.Iconos;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ItemClickEvent;
+			import mx.managers.PopUpManager;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padre:stProyectos;
+			
+			protected function init(event:FlexEvent):void
+			{
+				
+				try{
+					//_padreContenedor.allowMaximize=false;
+					//_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					txtNombreProyecto.setFocus();
+					
+					//loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					
+					
+					//ws_traerContactos.send();
+					//item.estado=2;
+					if(strAccion=="NUEVO"){
+						
+					//	loader.dp.hacerWS(['ciudades']);
+						rdbSeguimiento.selected = true;
+						this.title = "Nuevo Proyecto";
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+					//	generarFabricantes();
+					//	generarCostos();
+					//	dtfFDecision.text = item.fecha_desicion;
+					//	loader.dp.hacerWS(['ciudades']);
+					//	ws_traerFabricantesProyecto.send();
+						initSeleccionaEstadoRadioButton(_padre.item.estado);
+					}	
+					//Alert.show(generarClaveProyecto());
+				}catch(ex:Error){
+					loader.msgAviso("stciudades->init() ",3,ex);
+				}
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+			}
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				cerrarVentana();
+				
+			}
+			
+			public function cerrarVentana():void{
+				PopUpManager.removePopUp(this);
+			}
+			
+			public function initSeleccionaEstadoRadioButton(numero:int):void{
+				//Alert.show(numero+"");
+				if(numero==0){
+				//	regresa= Iconos.LED_RED16;
+					rdbPerdido.selected=true;
+				}
+				if(numero==1){
+				//	regresa= Iconos.LED_GREEN16;
+					rdbGanado.selected=true;
+				}
+				if(numero==2){
+				//	regresa= Iconos.LED_BLUE16;
+					rdbSeguimiento.selected=true;
+				}
+			}
+			
+			protected function fnrdbPerdido():void{
+				_padre.imgEstado.source = Iconos.LED_RED;
+				_padre.item.estado = 0;
+			}
+			
+			protected function fnrdbSeguimiento():void{
+				_padre.imgEstado.source = Iconos.LED_BLUE;
+				_padre.item.estado = 2;
+			}
+			
+			protected function fnrdbGanado():void{
+				_padre.imgEstado.source = Iconos.LED_GREEN;
+				_padre.item.estado = 1;
+			}
+			
+			protected function btnGuardar_clickHandler(event:MouseEvent):void
+			{
+				_padre.item.nombre_proyecto = txtNombreProyecto.text.toUpperCase();
+				_padre.lblNombreProyecto.text = txtNombreProyecto.text.toUpperCase();
+				//_padre.txtNombreProyecto.text = txtNombreProyecto.text.toUpperCase();
+				_padre.strNombreProyecto = txtNombreProyecto.text.toUpperCase();
+				_padre.item.estado = item.estado;
+				cerrarVentana();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<mx:Form width="100%" height="100%">
+		<mx:FormItem label="Proyecto:" toolTip="Nombre del Proyecto" width="100%">
+			<mx:TextInput id="txtNombreProyecto" text="{_padre.item.nombre_proyecto}"/>
+		</mx:FormItem>
+		<mx:FormItem label="Estado:" toolTip="Estado del Proyecto" width="100%">
+			<mx:VBox width="100%">
+				<mx:RadioButtonGroup id="EstadosProyectos" />
+				<mx:RadioButton groupName="EstadoProyecto" id="rdbPerdido" value="Perdido" label="Perdido" toolTip="Perdido" click="{fnrdbPerdido()}" width="200" />
+				<mx:RadioButton groupName="EstadoProyecto" id="rdbSeguimiento" value="Seguimiento" label="Seguimiento" toolTip="Seguimiento" click="{fnrdbSeguimiento()}" width="200"/>
+				<mx:RadioButton groupName="EstadoProyecto" id="rdbGanado" value="Ganado" label="Ganado" toolTip="Ganado" click="{fnrdbGanado()}" width="200"/>
+			</mx:VBox>
+		</mx:FormItem>
+		<mx:FormItem width="100%">
+			<mx:HBox width="100%" horizontalAlign="right">
+				<mx:LinkButton id="btnGuardar" label="Guardar" icon="{Iconos.FILESAVE16}" click="btnGuardar_clickHandler(event)"/>
+			</mx:HBox>
+		</mx:FormItem>
+		<!--<mx:HRule height="1" width="100%"/>
+		<mx:FormItem width="100%">
+			<mx:HBox width="100%" horizontalAlign="right">
+				<mx:LinkButton id="btnGuardar" icon="{Iconos.FILESAVE16}" toolTip="Guardar" />
+				<mx:LinkButton id="btnCancelar" icon="{Iconos.POPUP_CLOSE}" toolTip="Cancelar"/>
+			</mx:HBox>
+		</mx:FormItem>
+		-->
+	</mx:Form>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</mx:TitleWindow>

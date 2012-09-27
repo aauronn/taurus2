@@ -1,0 +1,513 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" creationComplete="init()" 
+		 alpha="1.0" title="Catálogo - Usuarios"  headerHeight="0"
+		 backgroundColor="#FFFFFF" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" borderStyle="none" 
+		 styleName="catalogPanel" backgroundAlpha="1.0"  xmlns:actionscripts="actionscripts.*">
+	
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Iconos;
+			import actionscripts.Utils;
+			
+			import components.SuperGrid.SuperGrid;
+			import components.SuperGrid.contenedorSt;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.controls.DataGrid;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.DragManager;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.ObjectProxy;
+			import mx.utils.ObjectUtil;
+			import mx.utils.StringUtil;
+			import mx.validators.Validator;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padreContenedor:contenedorSt;
+			[Bindable] public var _padreSuperGrid:SuperGrid;
+			
+			
+			
+			
+			[Bindable] public var xmlPermisosAsignados:XMLListCollection=new XMLListCollection();
+			[Bindable] public var xmlPermisosDisponibles:XMLListCollection=new XMLListCollection();
+			[Bindable] public var xmlPermCambios:XMLListCollection=new XMLListCollection();
+			
+			[Bindable] public var strPermRem:String="";
+			[Bindable] public var strPermAdd:String="";
+			
+			[Bindable] public var strPlantelTutor:String="";
+			
+			//VARIABLE QUE SE UTILIZA PARA GUARDAR LOS VALIDATORS
+			private var arrValidator:Array;
+			
+			
+			[Bindable] public var numDisponibles:int=0;
+			[Bindable] public var numAsignadas:int=0;
+			
+			
+			
+			public function init():void{            	
+				try{
+					_padreContenedor.allowMaximize=false;
+					_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					
+					if(strAccion=="NUEVO"){
+						loader.dp.hacerWS(['tipousuarios']);
+						initNuevo();
+					}  
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						loader.dp.hacerWS(['tipousuarios']);
+					} 
+					
+				}catch(ex:Error){
+					loader.msgAviso("stUsuarios->init() ",3,ex);
+				}
+			}
+			
+			
+			
+			private function initNuevo():void{			
+				//listaDisponibles.dataProvider = ObjectUtil.copy(sied.arrPermisosDisponibles);
+				
+				//listaDisponibles.dataProvider = new ArrayCollection();
+				//listaAsignados.dataProvider = new ArrayCollection();
+				
+				/*
+				xmlPermisosDisponibles.source = new XML(<xml><escuela claveescuela='' nombre='Suscritos a Caja de Ahorro' descripcion=''>
+				<escuela claveescuela='20' nombre='Nuevo' descripcion='HERMOSILLO : midescripcion ' clavenivel='1' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Editar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Borrar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Copiar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Imprimir' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				</escuela>
+				<escuela claveescuela='' nombre='Dependencias' descripcion=''>
+				<escuela claveescuela='20' nombre='Nuevo' descripcion='HERMOSILLO : midescripcion ' clavenivel='1' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Editar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Borrar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Copiar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Imprimir' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				</escuela>
+				<escuela claveescuela='' nombre='Relación de Descuentos a Caja de Ahorro' descripcion=''>
+				<escuela claveescuela='20' nombre='Nuevo' descripcion='HERMOSILLO : midescripcion ' clavenivel='1' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Editar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Borrar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Copiar' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				<escuela claveescuela='20' nombre='Imprimir' descripcion='HERMOSILLO : midescripcion ' clavenivel='3' claveregion='RSS'/>
+				</escuela></xml>).children();
+				
+				
+				loader.msgAviso(ObjectUtil.toString(xmlPermisosDisponibles.source));  */ 
+			}
+			
+			
+			
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					
+					// Tipos de Usuarios
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrTipoUsuarios),new ObjectProxy({idtipousuario:'',titulo:'Sin Seleccionar'}));
+					arr1.refresh();				
+					cbxTipoUsuario.dataProvider = arr1;	
+					
+					//Alert.show(Utils.print_r(arr1),"Arreglo");
+					if(strAccion=="NUEVO"){
+						loader.dp.cargaService(ws_permisos_usuario);
+					}
+					
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						cambiaRegistro();
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			
+			// Obligatorio, función llamada por el contenedor
+			private function cerrar():void{
+				_padreContenedor.cerrar();	    		
+			}     
+			
+			
+			// Obligatorio, función llamada por el contenedor cuando cambia de registro (item)
+			public function cambiaRegistro():void{
+				loader.dp.cargaService(ws_permisos_usuario);
+				// Buscar tipo de usuario
+				
+				DataProviders.selectedIndexCombo(cbxTipoUsuario,'idtipousuario',item.idtipousuario);
+				//Alert.show(Utils.print_r(item.idtipousuario));
+				/*var arr:ArrayCollection = (cbxTipoUsuario.dataProvider as ArrayCollection); 
+				for(var i:int=0; i<arr.length; i++){
+					if(arr[i]["idtipousuario"]==item["idtipousuario"]){
+						cbxTipoUsuario.selectedIndex=i;
+						break;
+					}
+				}
+				*/
+				huboCambios = false;	
+			}
+			
+			
+			
+			
+			/********** VALIDA Y GUARDA **********/
+			
+			private function initValidators():void{
+				
+				arrValidator = new Array();
+				
+				arrValidator.push(primera_stringValidator);
+				arrValidator.push(segundoa_stringValidator);
+				arrValidator.push(nombre_stringValidator);
+				//arrValidator.push(pass_stringValidator);
+				//arrValidator.push(pass2_stringValidator);
+				arrValidator.push(tipo_numberValidator);
+				//arrValidator.push(nombreusuario_stringValidator);
+				//arrValidator.push(tel_phonevalidator);
+				//arrValidator.push(cel_phonevalidator);
+				arrValidator.push(email_emailValidator);
+			}
+			
+			
+			public function validar():void{			
+				
+				// Validaciones
+				initValidators();
+				var errores:String="";
+				var validatorErrorArray:Array = Validator.validateAll(arrValidator);				
+				var isValidForm:Boolean = validatorErrorArray.length == 0;
+				
+				
+				if (!isValidForm) {
+					var err:ValidationResultEvent;
+					
+					for each (err in validatorErrorArray) {
+						var errField:String = err.currentTarget.source.name
+						errores+="* "+errField + ": " + err.message+".\n";
+					}
+					
+				}
+				
+				
+				if(errores!=""){
+					this.parentApplication.enabled=true;
+					loader.msgAviso(errores,2);					
+					return;				
+				}
+				
+				guardar();
+			}
+			
+			private function guardar():void{
+				saveActions();
+				
+				if(strAccion=="NUEVO" || strAccion=="COPIAR")  loader.dp.cargaService(ws_nuevo_registro);
+				if(strAccion=="EDITAR") loader.dp.cargaService(ws_edita_registro);
+			}
+			/********** VALIDA Y GUARDA **********/
+			
+			
+			
+			
+			
+			
+			
+			/******** RESULT HANDLERS *********/
+			public function resultGuardar(event:ResultEvent):void{
+				this.parentApplication.enabled=true;
+				var tipo:String    = (strAccion=="NUEVO" || strAccion=="COPIAR") ? "guardado"         : "editado";
+				var ws:HTTPService = (strAccion=="NUEVO" || strAccion=="COPIAR") ? ws_nuevo_registro  : ws_edita_registro;
+				
+				switch(StringUtil.trim(event.result.toString())){
+					case "ok":
+						huboCambios = false;
+						loader.msgAviso("El Usuario fue "+tipo+" correctamente.");
+						//if(strAccion == "NUEVO" || strAccion=="COPIAR"){
+						_padreSuperGrid.buscaRespuestas();
+						cerrar();
+						//}  
+						break;
+					
+					case "yaexiste":
+						loader.msgAviso("El Nombre de usuario ya existe, intente con otro",2);
+						break;
+					
+					default:
+						if(loader.debug){
+							loader.msgAviso(StringUtil.trim(event.result.toString()),3);	
+						}else{
+							loader.dp.reintentarHttpService("Ocurrió un problema al realizar la operación",ws,event);
+						}
+				}
+			}
+			
+			
+			
+			
+			public function resultPermisos(event:ResultEvent):void{
+				this.parentApplication.enabled=true;
+				try{
+					/*
+					var xmlPD1:XMLListCollection = new XMLListCollection();
+					xmlPA1.source = (Utils.clone(XML(event.result)));
+					var xmlPD2:XMLListCollection = new XMLListCollection();
+					xmlPA2.source = xmlPD1.descendants('permisos_disponibles').children();
+					
+					xmlPermisosDisponibles=xmlPD2;
+					
+					
+					var xmlPA1:XMLListCollection = new XMLListCollection();
+					xmlPA1.source = (Utils.clone(XML(event.result)));
+					var xmlPA2:XMLListCollection = new XMLListCollection();
+					xmlPA2.source = xmlPA1.descendants('permisos_asignados').children();
+					
+					xmlPermisosAsignados=xmlPA2;
+					xmlPermCambios.removeAll();
+					countChildren();
+					*/
+					xmlPermisosDisponibles.source=(Utils.clone(XML(event.result))).descendants('permisos_disponibles').children();
+					xmlPermisosAsignados.source=(Utils.clone(XML(event.result))).descendants('permisos_asignados').children();
+					xmlPermCambios.removeAll();
+					countChildren();
+				}catch(ex:Error){
+					loader.dp.reintentarHttpService("Error recibiendo los permisos del usuario",ws_permisos_usuario,ex);
+				}
+				
+			}
+
+			
+			
+			
+			/******** RESULT HANDLERS *********/
+			
+			
+			/*
+			srclist.dataProvider = new ArrayCollection(['Reading', 'Television', 'Movies']);
+			destlist.dataProvider = new ArrayCollection([]); 
+			*/
+			
+			private function openPopUpPermisos():void{
+				var ventana:popupPermisos = new popupPermisos();
+				PopUpManager.addPopUp(ventana,this.parentApplication as DisplayObject,true);
+				ventana._root = this;
+				PopUpManager.centerPopUp(ventana);       
+			}
+			
+			//FUNCION QUE GUARDA LOS CAMBIOS HECHOS EN PERMISOS
+			private function saveActions():void{
+				strPermRem="";
+				strPermAdd="";
+				
+				for(var i:int=0; i<xmlPermCambios.length; i++){
+					if(xmlPermCambios[i].@move=="remove"){
+						strPermRem+=xmlPermCambios[i].@clavepermiso+",";
+					}
+					else{
+						if(xmlPermCambios[i].@move=="add"){
+							strPermAdd+=xmlPermCambios[i].@clavepermiso+",";
+						}
+					}		
+				}
+			}
+			
+			public function countChildren():void{
+				var item:XML;
+				
+				numDisponibles = 0;
+				numAsignadas = 0;
+				
+				var objDisp:Object = new Object();
+				objDisp.count = 0;
+				countLeaves(xmlPermisosDisponibles.source,objDisp);
+				numDisponibles = objDisp.count;
+				
+				var objAsig:Object = new Object();
+				objAsig.count = 0;
+				countLeaves(xmlPermisosAsignados.source,objAsig);
+				numAsignadas = objAsig.count;
+				
+			}
+			
+			private function countLeaves(xml:*, obj:Object):void{
+				if(xml.children().length()>0){
+					for(var i:int = 0; i < xml.children().length(); i++){
+						countLeaves(xml.children()[i],obj);
+					}
+					
+				}
+				else{
+					if((xml && xml is XML) && ( xml.hasOwnProperty('@idpermiso') && xml.@idpermiso!='') ){
+						obj.count = int(obj.count)+1;
+					}
+				}
+			}
+			
+			
+			
+			private function cambiaTipoUsuario():void{
+				//switch(cbxTipoUsuario.selectedItem.idtipousuario){
+					//					case 2:
+					//						this._padreContenedor.addChild( new stMaestros);
+					//											break;
+					
+				//	default:
+				//		loader.msgAviso("Tipo usuario no valido: "+cbxTipoUsuario.selectedItem.idtipousuario,2);
+				//		break;
+				//}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- CONTENEDOR -->
+	<mx:VBox width="100%" verticalGap="10" >							
+		<mx:HBox styleName="fondoTitulos" width="100%">
+			<mx:Label text="Información Personal" fontWeight="bold" />
+		</mx:HBox>
+		
+		<mx:Grid width="100%" paddingLeft="5">
+			<mx:GridRow width="100%" >
+				<mx:GridItem width="118"><mx:Label text="Nombre(s):" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtNombre" name="Nombre" text="{item.nombre}" change="{huboCambios=true}" width="100%" restrict="{Utils.restringir('LETRAS,ACENTOS')}" styleName="glassPods" maxChars="250" /></mx:GridItem>
+				<mx:GridItem><mx:Label text="Correo:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtCorreo" name="Correo" text="{item.correo}" change="{huboCambios=true}" width="100%" styleName="glassPods" /></mx:GridItem>
+			</mx:GridRow>
+			
+			<mx:GridRow width="100%">
+				<mx:GridItem><mx:Label text="Primer Apellido:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtApaterno" name="Primer Apellido" text="{item.apaterno}" change="{huboCambios=true}" restrict="{Utils.restringir('LETRAS,ACENTOS')}" width="100%" styleName="glassPods" maxChars="250" /></mx:GridItem>
+				<mx:GridItem><mx:Label text="Segundo Apellido:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtAmaterno" name="Segundo Apellido" text="{item.amaterno}" change="{huboCambios=true}" restrict="{Utils.restringir('LETRAS,ACENTOS')}" width="100%" styleName="glassPods" maxChars="250" /></mx:GridItem>
+			</mx:GridRow>
+			
+			<mx:GridRow width="100%">
+				<mx:GridItem><mx:Label text="Telefono:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtTelefono" name="Telefono" text="{item.telefonos}" change="{huboCambios=true}" width="100%" styleName="glassPods" maxChars="250" /></mx:GridItem>
+				<mx:GridItem><mx:Label text="Celular:" /></mx:GridItem>
+				<!--<mx:GridItem width="200"><mx:TextInput id="txtCelular" name="Celular" text="{item.celular}" change="{huboCambios=true}" width="100%" styleName="glassPods" maxChars="250" /></mx:GridItem>-->
+			</mx:GridRow>
+		</mx:Grid>
+	</mx:VBox>
+	
+	<mx:VBox width="100%" verticalGap="10">
+		<mx:HBox styleName="fondoTitulos" width="100%">
+			<mx:Label text="Usuario del Sistema" fontWeight="bold" />
+		</mx:HBox>
+		<mx:Grid width="100%" paddingLeft="5">
+			<mx:GridRow width="100%">
+				<mx:GridItem><mx:Label text="Nombre de Usuario:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtAdmin" name="Nombre del usuario" text="{item.usuario}" change="{huboCambios=true}" restrict="{Utils.restringir('LETRAS,NUMEROS,GUIONES')}" width="100%" styleName="glassPods" maxChars="15" /></mx:GridItem>
+				<mx:GridItem><mx:Label text="Tipo Usuario:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:ComboBox id="cbxTipoUsuario" name="Tipo de Usuario" width="200" change="{huboCambios=true;cambiaTipoUsuario()}" labelField="titulo" itemRenderer="mx.controls.Label" /></mx:GridItem>
+			</mx:GridRow>
+			
+			<mx:GridRow width="100%">
+				<mx:GridItem><mx:Label text="Contraseña:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtPassword" name="Contraseña" text="{item.pass}" change="{huboCambios=true}" displayAsPassword="true"  width="100%" styleName="glassPods" maxChars="40" /></mx:GridItem>
+				<mx:GridItem><mx:Label text="Confirmar Contraseña:" /></mx:GridItem>
+				<mx:GridItem width="200"><mx:TextInput id="txtPassword2" name="Confirmación de Contraseña" text="{item.pass}" change="{huboCambios=true}" displayAsPassword="true" width="100%" styleName="glassPods" maxChars="40" /></mx:GridItem>
+			</mx:GridRow>
+		</mx:Grid>
+	</mx:VBox>
+	
+	<mx:VBox width="100%" verticalGap="10">
+		<mx:HBox styleName="fondoTitulos" width="100%">
+			<mx:Label text="Permisos del Usuario" fontWeight="bold" />
+		</mx:HBox>
+		
+		<mx:LinkButton label="Permisos Asignados ({numAsignadas}/{numDisponibles})" click="{openPopUpPermisos()}" fontWeight="bold" icon="{Iconos.KEYS16}" />
+		
+		<!--
+		<mx:LinkButton label="Revisar Permisos" click="{revisaPermisos()}" />
+		-->
+	</mx:VBox>
+	
+	
+	
+	
+	<!-- CONTENEDOR -->
+	
+	<fx:Declarations>
+	<!--VALIDADORES-->	
+		<mx:StringValidator id="primera_stringValidator" source="{txtApaterno}" property="text" minLength="1" tooShortError="El Primer Apellido debe ser de al menos 1 caracteres." requiredFieldError="Este campo no puede quedar vacío." required="true"/>
+		<mx:StringValidator id="segundoa_stringValidator" source="{txtAmaterno}" property="text" minLength="1" tooShortError="El Segundo Apellido debe ser de al menos 1 caracteres." requiredFieldError="Este campo no puede quedar vacío." required="true"/>
+		<mx:StringValidator id="nombre_stringValidator" source="{txtNombre}" property="text" minLength="1" tooShortError="El nombre debe ser de al menos 1 caracteres." requiredFieldError="Este campo no puede quedar vacío." required="true"/>
+		<!--<mx:StringValidator id="nombreusuario_stringValidator" source="{txtUsuario}" property="text" maxLength="20" minLength="1" tooShortError="El nombre usuario debe ser de al menos 1 caracteres." requiredFieldError="Este campo no puede quedar vacío." required="true" tooLongError="La clave debe ser de 20 caracteres maximo"/>
+		<mx:StringValidator id="pass_stringValidator" source="{txtPass}" property="text" minLength="1" tooShortError="La contraseña debe ser de al menos 1 caracteres." requiredFieldError="Este campo no puede quedar vacío." required="true"/>
+		<mx:StringValidator id="pass2_stringValidator" source="{txtPassword2}" property="text" minLength="1" tooShortError="La contraseña debe ser de al menos 1 caracteres." requiredFieldError="Este campo no puede quedar vacío." required="true"/>-->
+		<mx:NumberValidator id="tipo_numberValidator" source="{cbxTipoUsuario}" property="selectedIndex" minValue="0" lowerThanMinError="Selecciona el tipo de usuario por favor." trigger="{cbxTipoUsuario}" triggerEvent="change" required="true"/>
+		<!--<actionscripts:MinMaxLengthPhoneNumberValidator allowedFormatChars="()- " maxLength="10"  id="cel_phonevalidator" required="false" source="{txtTelefonos}" property="text" invalidCharError="Se detectaron caracteres inválidos. Escriba solo números, parntesis () y/o guiones -." wrongLengthError="Debes incluir 10 numeros (Ej. 6621234567, (662)1234567, 662-1234-567)."/>
+		<actionscripts:MinMaxLengthPhoneNumberValidator allowedFormatChars="()- " maxLength="10"  id="tel_phonevalidator" required="false" source="{txtTelefono}" property="text" invalidCharError="Se detectaron caracteres inválidos. Escriba solo números, parntesis () y/o guiones -." wrongLengthError="Debes incluir 10 numeros (Ej. 6621234567, (662)1234567, 662-1234-567)."/>-->
+		<mx:EmailValidator id="email_emailValidator" source="{txtCorreo}" property="text" invalidDomainError="Error de Dominio invalido" invalidCharError="Caracteres invalidos" invalidIPDomainError="Dominio de ip invalido" invalidPeriodsInDomainError="Error en puntos del Dominio" missingAtSignError="Error falta simbolo @" missingPeriodInDomainError="Error falta punto en dominio" missingUsernameError="Error falta de usuario" tooManyAtSignsError="Error demasiadas @"  required="true" requiredFieldError="Este campo no puede quedar vacío."/>
+	<!--VALIDADORE	-->
+		
+	<!--HTTP SERVICES-->	
+		<mx:HTTPService showBusyCursor="true" id="ws_nuevo_registro" method="POST" resultFormat="text" requestTimeout="30" fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_usuarios.php">
+			<mx:request>
+				<opcion>CAPTURA_USUARIO</opcion>			
+				<nombre>{txtNombre.text}</nombre>
+				<apaterno>{txtApaterno.text}</apaterno>
+				<amaterno>{txtAmaterno.text}</amaterno>
+				<nombreusuario>{txtAdmin.text}</nombreusuario>
+				<password>{txtPassword.text}</password>
+				<correo>{txtCorreo.text}</correo>
+				<telefono>{txtTelefono.text}</telefono>
+				<idtipousuario>{cbxTipoUsuario.selectedItem.idtipousuario}</idtipousuario>
+				<permisosAgregar>{strPermAdd}</permisosAgregar>
+				<permisosRemover>{strPermRem}</permisosRemover>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_edita_registro" method="POST" resultFormat="text" requestTimeout="30" fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_usuarios.php">
+			<mx:request>
+				<opcion>EDITA_USUARIO</opcion>			
+				<idusuario>{item.idusuario}</idusuario>
+				<nombre>{txtNombre.text}</nombre>
+				<apaterno>{txtApaterno.text}</apaterno>
+				<amaterno>{txtAmaterno.text}</amaterno>
+				<nombreusuario>{txtAdmin.text}</nombreusuario>
+				<password>{txtPassword.text}</password>
+				<correo>{txtCorreo.text}</correo>
+				<telefono>{txtTelefono.text}</telefono>
+				<idtipousuario>{cbxTipoUsuario.selectedItem.idtipousuario}</idtipousuario>
+				<permisosAgregar>{strPermAdd}</permisosAgregar>
+				<permisosRemover>{strPermRem}</permisosRemover>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_permisos_usuario" method="POST" requestTimeout="30" fault="loader.dp.faultHandler(event)" resultFormat="text" result="{resultPermisos(event);loader.dp.removeLoader()}" invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_usuarios.php">
+			<mx:request>
+				<opcion>PERMISOS_USUARIO</opcion>
+				<nombreusuario>{item.usuario}</nombreusuario>
+			</mx:request>
+		</mx:HTTPService>
+		
+	<!--HTTP SERVICES-->	
+	</fx:Declarations>
+</mx:TitleWindow>

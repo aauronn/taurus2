@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				layout="vertical" width="100%" height="100%"
+				showCloseButton="true" close="titlewindow1_closeHandler(event)"
+				creationComplete="init(event)">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.Iconos;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.messaging.channels.StreamingAMFChannel;
+			
+			[Bindable] public var fecha:Date = new Date();
+			[Bindable] public var fechastr:String = "";
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padre:stProyectos;			
+			
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				cerrarVentana();
+			}
+			
+			protected function cerrarVentana():void{
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				fechastr = fecha.day+"/"+(fecha.month+1)+"/"+fecha.fullYear;
+				dtfFecha.text = fechastr;
+			}
+			
+			protected function btnGuardar_clickHandler(event:MouseEvent):void
+			{
+				_padre.ACBitacora.addItem({fecha:dtfFecha.text, descripcion:txtDescripcion.text,
+					monto:'40',porcentaje:'30'});
+				_padre.ACBitacoraEditar.addItem({fecha:dtfFecha.text, descripcion:txtDescripcion.text,
+					monto:'40',porcentaje:'30'});
+				Alert.show("Mensage Guardado","Mensage Guardado",4,null,null,Iconos.MESSAGEBOX_OK);
+				cerrarVentana();
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:Form width="100%" >
+		<mx:FormItem label="Fecha:" width="100%">
+			<mx:DateField id="dtfFecha" width="100%" showToday="true" formatString="DD/MM/YYYY" 
+						  dayNames="[Domingo, Lunes, Martes, Miercoles, Jueves, Viernes, Sabado]" 
+						  monthNames="[Enero, Febrero, Marzo, Abril, Mayo, Junio, Julio, Agosto, Septiembre, Octubre, Noviembre, Diciembre]"/>
+		</mx:FormItem>
+		<mx:FormItem label="Descripcion:" width="100%">
+			<mx:TextArea id="txtDescripcion" width="100%"/>
+		</mx:FormItem>
+		<mx:FormItem width="100%">
+			<mx:LinkButton id="btnGuardar" label="Guardar" icon="{Iconos.FILESAVE16}" click="btnGuardar_clickHandler(event)"/>
+			<mx:LinkButton id="btnCancelar" label="Cancelar" icon="{Iconos.MESSAGEBOX_ERROR16}" click="{cerrarVentana()}"/>
+		</mx:FormItem>
+	</mx:Form>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</mx:TitleWindow>

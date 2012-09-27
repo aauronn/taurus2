@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" 
+		  creationComplete="{init()}" width="100%" height="100%" 
+		  xmlns:SuperGrid="components.SuperGrid.*">
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center"/>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Utils;
+			
+			import flex_modulos.catalogos.Usuarios.comps.stTipoUsuarioTemp;
+			import flex_modulos.catalogos.Usuarios.comps.stUsuarios;
+			
+			import mx.collections.ArrayCollection;
+			import mx.containers.VBox;
+			import mx.controls.ComboBox;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.utils.ObjectProxy;
+			
+			
+			[Bindable] private var arrMapeosCat:ArrayCollection = new ArrayCollection();
+			
+			private function init():void{
+				//loader.dp.revisaPermisosGrid(gridResultados,"catalogo_usuarios_consultar","catalogo_usuarios_crear","catalogo_usuarios_editar","catalogo_usuarios_borrar","catalogo_usuarios_copiar","catalogo_usuarios_imprimir");
+				loader.dp.cargaLoader(this);
+				//loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+				//loader.dp.hacerWS(['mapeos']);
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+			}
+			
+			public function getCatalogoSt():stUsuarios{	
+				return new stUsuarios;
+			}
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//arrMapeosCat.source = Utils.clone(loader.dp.arrMapeos.source);		
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Usuarios" styleName="catalogPanel" horizontalAlign="left"  paddingTop="5" verticalAlign="top"  >		
+		<SuperGrid:SuperGrid id="gridResultados"  tituloReporte="Catálogo de Usuarios" _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_consulta_registros}" 
+							 isCatalogo="true" _wsBorrar="{ws_borrar_registro}" _idtabla="idusuario" _padreCatalogo="{this}" showContenedorStNavigation="false" />
+	</mx:Panel>
+	
+	<fx:Declarations>
+		
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="usuario" headerText="Usuario" width="90"/>
+			<mx:DataGridColumn dataField="apaterno" headerText="Primer Apellido"  width="110"/>
+			<mx:DataGridColumn dataField="amaterno" headerText="Segundo Apellido"  width="110"/>
+			<mx:DataGridColumn dataField="nombreCompleto"  headerText="Nombre" editable="false" width="110"/>	
+			<mx:DataGridColumn dataField="tipousuario" headerText="Tipo Usuario"  width="110"/>
+			<mx:DataGridColumn dataField="correo" headerText="Correo"  width="110"/>		
+		</fx:Array>
+		
+		<!-- HTTPSERVICES -->
+		<mx:HTTPService id="ws_consulta_registros" url="{loader.strHostUrl}ws_usuarios.php">
+			<mx:request>
+				<opcion>FILTRA_USUARIOS</opcion>	
+				<idtipousuario>{loader.idtipousuario}</idtipousuario>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrar_registro" url="{loader.strHostUrl}ws_usuarios.php">
+			<mx:request>
+				<opcion>BORRA_USUARIO</opcion>
+			</mx:request>
+		</mx:HTTPService>	
+		
+	</fx:Declarations>
+</s:Module>

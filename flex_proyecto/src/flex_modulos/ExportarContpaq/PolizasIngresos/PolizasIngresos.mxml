@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%"
+		  creationComplete="init(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+		
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.Iconos;
+			import actionscripts.Serializer;
+			import actionscripts.Utils;
+			
+			import mx.controls.Alert;
+			import mx.events.DragEvent;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.ResultEvent;
+
+
+
+			
+			[Bindable] public var acPagosExportar:ArrayCollection = new ArrayCollection();
+			[Bindable] private var strSerializado:String="";
+			[Bindable] private var arrSerializado:String="";
+			
+			[Bindable] private var pnombre:String="";
+			[Bindable] private var pdatos:String="";
+			[Bindable] private var dnombre:String="";
+			[Bindable] private var ddatos:String="";
+			[Bindable] private var indnombre:String="";
+			[Bindable] private var inddatos:String="";
+			
+			protected function init(event:FlexEvent):void
+			{
+			//	dgIngresosBusqueda2.addEventListener(DragEvent.DRAG_ENTER, dgIngresosBusqueda2DragComplete);
+			}
+			
+			protected function dgIngresosBusqueda2DragComplete (event:DragEvent):void
+			{
+				Alert.show(Utils.print_r(event.currentTarget.dataProvider.source), "MiObjeto");
+			}
+			
+			protected function dgIngresosBusqueda_doubleClickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+				Alert.show(Utils.print_r(event.target.data),"Mi Objeto")
+			}
+			
+			protected function ws_traer_datos_resultHandler(event:ResultEvent):void
+			{
+				try{
+					//ACDATA = Utils.getRows(Utils.decrypt(event.result.tablas,loader.RC4_KEY));
+					ACDATA = Utils.getRows(event.result.tablas);
+					dgIngresosBusqueda.dataProvider = (ACDATA);
+				}
+				catch(ex:Error){
+					loader.msgAviso("Error->TraerResultadosInit",3,ex);
+				}
+			}
+			
+			protected function btnTraerDatos_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				if(dtfFecha.text!="" || dtfFecha.text!=null)
+				{
+					ws_traer_datos.send();
+				}
+				else{
+					Alert.show("Seleccione la fecha", "Error");
+				}
+			}
+			
+			
+			
+			protected function linkbutton1_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				//Alert.show(Utils.print_r(dgIngresosBusqueda2.dataProvider),"Tabla2");
+				
+			}
+			
+			protected function lkbCrearPoliza_clickHandler(event:MouseEvent):void
+			{
+				var miColeccionArreglo:ArrayCollection = (dgIngresosBusqueda2.dataProvider as ArrayCollection);
+				//Alert.show((dgIngresosBusqueda2.dataProvider as ArrayCollection).toArray().length+"");
+				
+				
+				if((dtfFechaDeposito.text!="")){
+					if ((dgIngresosBusqueda2.dataProvider as ArrayCollection).length > 0){
+						//Alert.show((dgIngresosBusqueda2.dataProvider as ArrayCollection).toArray().length+"");
+						
+						strSerializado = Serializer.serialize(miColeccionArreglo.toArray());
+						ws_enviar_datos.request.datos = strSerializado;
+						ws_enviar_datos.send();
+					}else{
+						Alert.show("Favor de seleccionar Pagos","Error");
+					}
+				}else{
+					Alert.show("Favor de seleccionar fecha de deposito","Error");
+				}
+			}
+			
+			protected function ws_enviar_datos_resultHandler(event:ResultEvent):void
+			{
+				if(event.result.tablas.arrserializado.toString()!="")
+				{
+					arrSerializado = event.result.arrserializado;
+					ws_exportar_poliza2.request.tipoCambio = event.result.tablas.tipoCambio;
+					ws_exportar_poliza2.request.arrSerializado = event.result.tablas.arrserializado;
+					ws_exportar_poliza2.send();
+				}
+			}
+			
+			protected function lkbExportar_clickHandler(event:MouseEvent):void
+			{
+				if((dtfFechaDeposito.text!="")){
+					//ws_exportar_poliza.send();
+					
+					var url:String =loader.strHostUrl+"ws_exportar_ingresos_txt2.php";
+					var request:URLRequest = new URLRequest(url);
+					var variables:URLVariables = new URLVariables();
+					variables.opcion = "EXPORTAR_TXT";
+					variables.fechaExportar = dtfFechaDeposito.text;
+					variables.lDepIni = txtDeposito.text;
+					variables.lMovtoIni  = txtIngresoNoDepositado.text;
+					variables.lNoPoliza  = txtPIngresosNum.text;
+					request.data = variables;
+					request.method = URLRequestMethod.POST;
+					navigateToURL(request,"_blank");
+				}else{
+					Alert.show("Favor de seleccionar fecha de deposito","Error");
+				}
+			}
+			
+			protected function ws_exportar_poliza_resultHandler(event:ResultEvent):void
+			{
+				pnombre 	= "";
+				pdatos 		= "";
+				dnombre 	= "";
+				ddatos 		= "";
+				indnombre 	= "";
+				inddatos	= "";
+				
+				pnombre 	= event.result.tablas.pnombre.toString();
+				pdatos 		= event.result.tablas.pdatos.toString();
+				dnombre 	= event.result.tablas.dnombre.toString();
+				ddatos 		= event.result.tablas.ddatos.toString();
+				indnombre 	= event.result.tablas.indnombre.toString();
+				inddatos	= event.result.tablas.idndatos.toString();
+			}
+			
+			protected function ws_exportar_poliza2_resultHandler(event:ResultEvent):void
+			{
+				if(event.result.toString()=="ok"){
+					Alert.show("Polizas Creadas");
+				}
+				
+			}
+			
+			protected function btnLimpiaExportar_clickHandler(event:MouseEvent):void
+			{
+				dgIngresosBusqueda2.dataProvider.removeAll();
+				dgIngresosBusqueda.dataProvider.removeAll();
+				// TODO Auto-generated method stub
+				if(dtfFecha.text!="" || dtfFecha.text!=null)
+				{
+					ws_traer_datos.send();
+				}
+				else{
+					Alert.show("Seleccione la fecha", "Error");
+				}
+				
+			}
+			
+			protected function btnLimpiaPagos_clickHandler(event:MouseEvent):void
+			{
+				dgIngresosBusqueda.dataProvider.removeAll();
+				
+			}
+			
+			protected function btnBajarIngresos_clickHandler(event:MouseEvent):void
+			{
+				var url:String =loader.strHostUrl+"ws_exportar_ingresos_txt2.php";
+				var request:URLRequest = new URLRequest(url);
+				var variables:URLVariables = new URLVariables();
+				variables.opcion = "BAJAR_INGRESOS";
+				variables.nombre = pnombre;
+				variables.datos  = pdatos;
+				request.data = variables;
+				request.method = URLRequestMethod.POST;
+				navigateToURL(request,"_blank");
+			}
+			
+			protected function btnBajarDepositos_clickHandler(event:MouseEvent):void
+			{
+				var url:String =loader.strHostUrl+"ws_exportar_ingresos_txt2.php";
+				var request:URLRequest = new URLRequest(url);
+				var variables:URLVariables = new URLVariables();
+				variables.opcion = "BAJAR_DEPOSITOS";
+				variables.nombre = dnombre;
+				variables.datos  = ddatos;
+				request.data = variables;
+				request.method = URLRequestMethod.POST;
+				navigateToURL(request,"_blank");
+			}
+			
+			protected function btnBajarIngresosNoDep_clickHandler(event:MouseEvent):void
+			{
+				var url:String =loader.strHostUrl+"ws_exportar_ingresos_txt2.php";
+				var request:URLRequest = new URLRequest(url);
+				var variables:URLVariables = new URLVariables();
+				variables.opcion = "BAJAR_INGRESOS_NO_DEP";
+				variables.nombre = indnombre;
+				variables.datos  = inddatos;
+				request.data = variables;
+				request.method = URLRequestMethod.POST;
+				navigateToURL(request,"_blank");
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:Panel id="pIngresos" width="100%" height="100%" title="Polizas Ingresos" layout="vertical">
+		<mx:VBox width="100%" label="Ingresos" paddingLeft="5" paddingTop="5" paddingRight="5" paddingBottom="5">
+			<mx:HBox width="100%">
+				<mx:VBox width="100%">
+					<mx:HBox width="100%">
+						<mx:Label id="lblFecha" text="Fecha:" fontWeight="bold"/>
+						<mx:DateField id="dtfFecha" width="250" showToday="true" formatString="YYYY-MM-DD"/>
+						<mx:LinkButton id="btnTraerDatos" label="Traer Ingresos" click="btnTraerDatos_clickHandler(event)" icon="{Iconos.SEARCH16}"/>
+					</mx:HBox>
+				</mx:VBox>
+				
+				<mx:VBox width="100%">
+					<mx:HBox width="100%">
+						<mx:Label id="lblFechaDeposito" text="Fecha Deposito:" fontWeight="bold"/>
+						<mx:DateField id="dtfFechaDeposito" width="250" showToday="true" formatString="YYYY-MM-DD"/>
+						
+					</mx:HBox>
+				</mx:VBox>
+			</mx:HBox>
+			
+			<!--DATA GRIDS -->
+			<mx:HBox width="100%">
+				<mx:Panel title="Pagos en Galaxy" width="50%">
+					<mx:DataGrid id="dgIngresosBusqueda" width="100%" height="300"
+								 allowMultipleSelection="true" borderVisible="true"
+								 doubleClick="dgIngresosBusqueda_doubleClickHandler(event)"
+								 doubleClickEnabled="true" dragEnabled="true" dragMoveEnabled="true"
+								 dropEnabled="true" dropShadowVisible="false">
+						<mx:columns>
+							<mx:DataGridColumn dataField="num_docto" headerText="Num" width="80" />
+							<mx:DataGridColumn dataField="moneda" headerText="Moneda"  width="45"/>
+							<mx:DataGridColumn dataField="importe" headerText="Importe"  width="70"/>
+							<mx:DataGridColumn dataField="nombre"  headerText="Cliente" width="200"  
+											   dataTipField="nombre" showDataTips="true"/>
+						</mx:columns>
+					</mx:DataGrid>
+				</mx:Panel>
+				
+				<mx:Panel title="Pagos a Exportar" width="50%" horizontalAlign="right">
+					<mx:DataGrid id="dgIngresosBusqueda2" width="100%" dropShadowVisible="false" height="300"
+								 dragEnabled="true" dragMoveEnabled="true" dropEnabled="true" 
+								 allowMultipleSelection="true" doubleClickEnabled="true"  
+								 doubleClick="dgIngresosBusqueda_doubleClickHandler(event)" >
+						<mx:columns>
+							<mx:DataGridColumn dataField="num_docto" headerText="Num" width="80" />
+							<mx:DataGridColumn dataField="moneda" headerText="Moneda"  width="45"/>
+							<mx:DataGridColumn dataField="importe" headerText="Importe"  width="70"/>
+							<mx:DataGridColumn dataField="nombre"  headerText="Cliente" width="200" 
+											   dataTipField="nombre" showDataTips="true"/>
+						</mx:columns>
+					</mx:DataGrid>
+					
+				</mx:Panel>
+			</mx:HBox>
+			
+			<!-- BOTONES -->
+			<mx:HBox width="100%">
+				<mx:VBox >
+					<mx:FormItem label="No. Poliza Ingresos" fontWeight="bold" labelWidth="180">
+						<mx:HBox>
+							<mx:TextInput id="txtPIngresosNum" width="150" text="1"/>
+						</mx:HBox>
+					</mx:FormItem>
+					<mx:FormItem label="No. Deposito" fontWeight="bold" labelWidth="180">
+						<mx:HBox>
+							<mx:TextInput id="txtDeposito" width="150" text="1"/>
+						</mx:HBox>
+					</mx:FormItem>
+					<mx:FormItem label="No. Ingreso No Depositados" fontWeight="bold" labelWidth="180">
+						<mx:HBox>
+							<mx:TextInput id="txtIngresoNoDepositado" width="150" text="1"/>
+						</mx:HBox>
+					</mx:FormItem>
+				</mx:VBox>
+				
+				<mx:LinkButton id="lkbCrearPoliza" label="Crear Poliza" icon="{Iconos.FILENEW16}" 
+							   click="lkbCrearPoliza_clickHandler(event)" fontWeight="bold"/>
+				<mx:LinkButton id="lkbExportar" label="Exportar" icon="{Iconos.FILESAVE16}" fontWeight="bold"
+							   click="lkbExportar_clickHandler(event)"/>
+				<mx:HBox width="100%" horizontalAlign="right">
+					<mx:VBox >
+						<mx:LinkButton id="btnLimpiaPagos" label="Limpiar Pagos" click="btnLimpiaPagos_clickHandler(event)" icon="{Iconos.REMOVE16}" fontWeight="bold"/>
+						<mx:LinkButton id="btnLimpiaExportar" label="Limpiar Exportaciones" click="btnLimpiaExportar_clickHandler(event)" icon="{Iconos.REMOVE16}" fontWeight="bold"/>
+					</mx:VBox>
+				</mx:HBox>
+			</mx:HBox>
+			
+		</mx:VBox>
+	</mx:Panel>
+	
+	
+	<fx:Declarations>
+		<fx:Array id="columnasGridBusqueda">
+					
+		</fx:Array>
+		
+		<fx:Array id="columnasGridBusqueda2">
+			<mx:DataGridColumn dataField="num_docto" headerText="Num" width="80"/>
+			<mx:DataGridColumn dataField="moneda" headerText="Moneda"  width="45"/>
+			<mx:DataGridColumn dataField="importe" headerText="Importe"  width="70"/>
+			<mx:DataGridColumn dataField="nombre"  headerText="Cliente" width="130"/>		
+		</fx:Array>
+		
+		<fx:Array id="Datos">
+			<fx:Object num='20' moneda='dlls' importe='100' cliente='Cliente1' />
+			<fx:Object num='21' moneda='mxn' 	importe='200' cliente='Cliente2' />
+			<fx:Object num='22' moneda='dlls' importe='300' cliente='Cliente3' />
+			<fx:Object num='23' moneda='dlls' importe='400' cliente='Cliente4' />
+			<fx:Object num='24' moneda='mxn' 	importe='500' cliente='Cliente5' />
+			<fx:Object num='25' moneda='dlls' importe='600' cliente='Cliente6' />
+		</fx:Array>
+		
+		<!-- WEB SERVICES -->
+		<mx:HTTPService showBusyCursor="true" id="ws_traer_datos" method="POST" requestTimeout="30" 
+						resultFormat="object" result="ws_traer_datos_resultHandler(event)"  
+						url="{loader.strHostUrl}ws_polizas_ingresos2.php">
+			<!--fault="loader.dp.faultHandler(event)"-->
+			<mx:request>
+				<opcion>TRAER_DATOS</opcion>
+				<fecha>{dtfFecha.text}</fecha>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_enviar_datos" method="POST" requestTimeout="30" 
+						resultFormat="object" result="ws_enviar_datos_resultHandler(event)"  
+						url="{loader.strHostUrl}ws_polizas_ingresos.php">
+			<!--fault="loader.dp.faultHandler(event)"-->
+			<mx:request>
+				<opcion>GUARDA_TEPORAL</opcion>
+				<fecha>{dtfFechaDeposito.text}</fecha>
+				<poliza>{txtPIngresosNum.text}</poliza>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_exportar_poliza" method="POST" requestTimeout="30" 
+						resultFormat="object" result="ws_exportar_poliza_resultHandler(event)"
+						url="{loader.strHostUrl}ws_exportar_ingresos_txt2.php">
+			<!--fault="loader.dp.faultHandler(event)"-->
+			<mx:request>
+				<opcion>EXPORTAR_TXT</opcion>
+				<fechaExportar>{dtfFechaDeposito.text}</fechaExportar>
+				<lNoPoliza>{txtPIngresosNum.text}</lNoPoliza>
+				<lMovtoIni>{txtIngresoNoDepositado.text}</lMovtoIni>
+				<lDepIni>{txtDeposito.text}</lDepIni>
+			</mx:request>
+		</mx:HTTPService>
+		
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_exportar_poliza2" method="POST" requestTimeout="30" 
+						resultFormat="object" result="ws_exportar_poliza2_resultHandler(event)"
+						url="{loader.strHostUrl}ws_polizas_ingresos.php">
+			<!--fault="loader.dp.faultHandler(event)"-->
+			<mx:request>
+				<opcion>ENVIAR_DATOS2</opcion>
+				<fechaExportar>{dtfFechaDeposito.text}</fechaExportar>
+				<lNoPoliza>{txtPIngresosNum.text}</lNoPoliza>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<s:ArrayCollection id="ACDATA"/>
+		
+	</fx:Declarations>
+</s:Module>

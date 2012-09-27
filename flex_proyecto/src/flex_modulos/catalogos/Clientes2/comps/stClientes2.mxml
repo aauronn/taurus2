@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" layout="vertical" width="100%" height="100%"
+				creationComplete="init(event)" 
+				alpha="1.0" title="Catálogo - Localidades" headerHeight="0"
+				backgroundColor="#FFFFFF" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" borderStyle="none" 
+				styleName="catalogPanel" backgroundAlpha="1.0">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Utils;
+			
+			import components.SuperGrid.SuperGrid;
+			import components.SuperGrid.contenedorSt;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.IndexChangedEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.ObjectProxy;
+			import mx.utils.StringUtil;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padreContenedor:contenedorSt;
+			[Bindable] public var _padreSuperGrid:SuperGrid;
+			
+			private var ServicesHandler:HTTPService;
+			private var flagFiltrar:Boolean = false;
+			
+			//Variables Paginacion
+			[Bindable] public var offset:int=1;			  //Variable de control para el offset entre querys (NO EDITABLE)
+			[Bindable] private var limit:int = 5; //total de botones de paginacion
+			[Bindable] private var inipags:int = 1;       //primer boton de paginacion
+			[Bindable] private var regsporpag:int = 100;  //total de registros mostrados por pagina
+			[Bindable] private var totalpags:int = 0;	  //total de paginas
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+					_padreContenedor.allowMaximize=false;
+					_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					loader.dp.hacerWS(['ciudades']);
+					
+					//ws_traerContactos.send();
+					
+					if(strAccion=="NUEVO"){
+						
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						//loader.dp.hacerWS(['ciudades']);
+					}	
+				}catch(ex:Error){
+					loader.msgAviso("stciudades->init() ",3,ex);
+				}
+			}
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//arrFamilias.source = Utils.clone(loader.dp.arrFamilias.source);		
+					
+					// Ciudades
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrCiudades),new ObjectProxy({clave_ciudad:'',ciudad:'Sin Seleccionar'}));
+					arr1.refresh();
+					cbxCiudad.dataProvider = arr1;	
+					cbxCiudad.labelField = "ciudad";
+					
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						cambiaRegistro();
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			public function cerrar():void{
+				_padreContenedor.cerrar();
+			}
+			
+			public function cambiaRegistro():void{
+				huboCambios = false;
+				// Buscar Ciudad
+				DataProviders.selectedIndexCombo(cbxCiudad,'clave_ciudad',item.clave_ciudad);
+				
+				ws_traerContactos.send();
+				if(tnClientes.selectedIndex==1){
+					ws_traerEncabezadoCotizaciones.send();
+				}
+				// Buscar Localidad
+				//DataProviders.selectedIndexCombo(cbxLocalidad,'clavelocalidad',item.clavelocalidad);
+				huboCambios=false;
+				
+			}
+			
+			
+			
+			/********** VALIDA Y GUARDA **********/
+			public function validar():void{
+				var errores:String="";				
+				//if(StringUtil.trim(txtClaveCiudad.text)==""){      errores+="- Ingrese la clave.\n"; }
+				//if(cbxEntidadFederativa.selectedIndex<=0){      errores+="- Ingrese el Estado.\n"; }
+				//if(cbxLocalidad.selectedIndex<0&&cbxLocalidad.selectedItem.nombrelocalidad.toString()!='Sin Seleccionar'){      errores+="- Ingrese el municipio.\n"; }
+				//if(StringUtil.trim(txtNombreCiudad.text)==""){ errores+="- Ingrese el nombre de la Localidad.\n"; }
+				//if(StringUtil.trim(txtDirectorlocalidad.text)==""){ errores+="- Ingrese el nombre del director de Ciudad.\n"; }
+				
+				if(errores==""){
+					guardar();					
+				}else{	
+					loader.msgAviso(errores,2);
+				}
+				
+			}
+			
+			private function guardar():void{
+				if(strAccion=="NUEVO" || strAccion=="COPIAR")  loader.dp.cargaService(ws_nuevo_registro);
+				if(strAccion=="EDITAR") loader.dp.cargaService(ws_edita_registro);
+				
+			}
+			/********** VALIDA Y GUARDA **********/
+			
+			
+			
+			
+			
+			
+			
+			/******** RESULT HANDLERS *********/
+			public function resultGuardar(event:ResultEvent):void{
+				this.parentApplication.enabled=true;
+				var tipo:String    = (strAccion=="NUEVO" || strAccion=="COPIAR") ? "guardada"        : "editada";
+				var ws:HTTPService = (strAccion=="NUEVO" || strAccion=="COPIAR") ? ws_nuevo_registro : ws_edita_registro;
+				
+				switch(StringUtil.trim(event.result.toString())){
+					case "ok":
+						huboCambios = false;
+						loader.msgAviso("El Cliente fue "+tipo+" correctamente.");
+						//loader.dp.hacerWS(['ciudades'],true);
+						_padreSuperGrid.buscaRespuestas();
+						cerrar();						
+						break;
+					
+					case "yaexiste":
+						loader.msgAviso("El Cliente ya existe",2);
+						break;
+					
+					default:
+						if(loader.debug){
+							loader.msgAviso(StringUtil.trim(event.result.toString()),3);	
+						}else{
+							loader.dp.reintentarHttpService("Ocurrió un problema al realizar la operación",ws,event);
+						}
+				}
+				
+			}
+			/******** RESULT HANDLERS *********/
+			
+			protected function tnClientes_changeHandler(event:IndexChangedEvent):void
+			{
+				if(event.newIndex==1){
+					ws_traerEncabezadoCotizaciones.send();
+				}
+			}
+			
+			//FUNCIONES DE FALLO DE UN HTTPSERVICE
+			
+			public function faultHandler(evento:FaultEvent):void{
+				trace(evento.message);
+				this.parentApplication.enabled=true;
+				ServicesHandler=new HTTPService;
+				ServicesHandler=evento.target as HTTPService;
+				Alert.yesLabel="Reintentar";
+				Alert.noLabel="Cancelar";
+				Alert.buttonWidth=100;        	
+				Alert.show("Ocurrió un error con la conexión.","ERROR",Alert.YES|Alert.NO,null,errorHandler,null,Alert.OK);
+				
+			}
+			
+			public function errorHandler(evento:Object):void{
+				if(evento.detail == Alert.YES) {
+					ServicesHandler.send();	
+				}
+				if(evento.detail == Alert.NO) {
+					ServicesHandler=new HTTPService();
+				}
+			}
+			
+			protected function resultHandler(event:ResultEvent):void{
+				
+				ACDATA = Utils.getRows(event.result.tablas,'tabla0');
+				if(tnClientes.selectedIndex==0){
+					dgContactos.dataProvider = ACDATA;
+				}
+				else if(tnClientes.selectedIndex==1){
+					
+					dgCotizaciones.dataProvider = ACDATA;
+				}
+				
+			}
+			
+			protected function habilitaClaveCliente():Boolean{
+				if(strAccion=='NUEVO'){
+					return true;
+				}else{
+					return false;
+				}
+			}
+		]]>
+	</fx:Script>
+	<mx:TabNavigator id="tnClientes" width="100%" change="tnClientes_changeHandler(event)" 
+					 paddingLeft="2" paddingRight="2" paddingBottom="2" paddingTop="2">
+		<mx:VBox id="vBoxGeneral" label="General" width="100%">
+			<mx:Form id="fProyecto" width="100%" height="100%" labelWidth="100">
+				
+				<mx:VBox width="100%">
+					<mx:HBox width="100%">
+						<!--Vbox 1-->
+						<mx:VBox width="40%">
+							<mx:FormItem label="Clave Cliente:" width="100%" >
+								<mx:TextInput id="txtClaveCliente" text="{item.idcliente}" editable="{false}" 
+											  width="100%" toolTip="{item.idcliente}" />
+							</mx:FormItem>
+							<mx:FormItem label="Nombre Cliente:" width="100%" >
+								<mx:TextInput id="txtNombreCliente" text="{item.nombre}" editable="{true}" width="100%"/>
+							</mx:FormItem>
+							
+							<mx:FormItem label="Direccion:" enabled="true" width="100%">
+								<mx:TextInput id="txtDireccion1" text="{item.direccion_1}" width="100%"/>
+							</mx:FormItem>
+							<mx:FormItem enabled="true" width="100%">
+								<mx:TextInput id="txtDireccion2" text="{item.direccion_2}" width="100%"/>
+							</mx:FormItem>
+						</mx:VBox>
+						<!--Vbox 2-->
+						<mx:VBox width="30%" >
+							<mx:FormItem label="Ciudad:" enabled="true" width="100%">
+								<mx:ComboBox id="cbxCiudad" prompt="Sin Seleccionar" change="{huboCambios=true}" width="100%"/>
+							</mx:FormItem>
+							<mx:FormItem label="Codigo Postal:" enabled="true" width="100%">
+								<mx:TextInput id="txtCodigoPostal" text="{item.cp}" width="100%"/>
+							</mx:FormItem>
+							<mx:FormItem label="RFC:" enabled="true" width="100%">
+								<mx:TextInput id="txtRFC" width="100%" text="{item.rfc}"/>
+							</mx:FormItem>
+							<mx:FormItem label="Limite Credito:" enabled="true" width="100%">
+								<mx:TextInput id="txtLimiteCredito" width="100%" text="{item.limite_credito}"/>
+							</mx:FormItem>
+						</mx:VBox>
+						<!--Vbox 3
+						<mx:VBox width="30%" >
+							<mx:FormItem label="Ciudad:" enabled="true" width="100%">
+								<mx:ComboBox id="cbxCiudad2" prompt="Ciudades" width="100%"/>
+							</mx:FormItem>
+							<mx:FormItem label="Codigo Postal:" enabled="true" width="100%">
+								<mx:TextInput id="txtCodigoPostal2" text="{item.cp}" width="100%"/>
+							</mx:FormItem>
+							<mx:FormItem label="RFC:" enabled="true" width="100%">
+								<mx:TextInput id="txtRFC2" width="100%" text="{item.rfc}"/>
+							</mx:FormItem>
+							<mx:FormItem label="Limite Credito:" enabled="true" width="100%">
+								<mx:TextInput id="txtLimiteCredito2" width="100%" text="{item.limite_credito}"/>
+							</mx:FormItem>
+						</mx:VBox>
+						-->
+					</mx:HBox>
+						
+					<mx:Label text="Contactos" fontSize="16" fontWeight="bold"/>
+					
+					<mx:DataGrid id="dgContactos" width="100%" height="200" >
+						<mx:columns>
+							<mx:DataGridColumn dataField="nombre" headerText="Nombre" width="250"/>
+							<mx:DataGridColumn dataField="puesto" headerText="Puesto" width="150"/>
+							<mx:DataGridColumn dataField="telefono_1" headerText="Telefono 1" width="75"/>
+							<mx:DataGridColumn dataField="extension_1" headerText="Extension 1" width="45"/>
+							<mx:DataGridColumn dataField="telefono_2" headerText="Telefono 2" width="75"/>
+							<mx:DataGridColumn dataField="extension_2" headerText="Extension 2" width="45"/>
+							<mx:DataGridColumn dataField="fax" headerText="Fax" width="75"/>
+							<mx:DataGridColumn dataField="lada" headerText="Lada" width="45"/>
+							<mx:DataGridColumn dataField="email" headerText="Correo" width="250"/>
+						</mx:columns>
+					</mx:DataGrid>
+					
+					
+				</mx:VBox>
+				
+				
+				<!--<s:FormItem label="RFC:" enabled="true" width="100%">
+				
+				</s:FormItem>-->
+			</mx:Form>
+		</mx:VBox>
+		
+		
+		<mx:VBox id="vBoxCotizaciones" label="Cotizaciones" width="100%">
+			<mx:DataGrid id="dgCotizaciones" width="100%" >
+				<mx:columns>
+					<mx:DataGridColumn dataField="clave_bodega" headerText="Bodega" width="80"/>
+					<mx:DataGridColumn dataField="num_docto" headerText="Numero de Documento" width="130"/>
+					<mx:DataGridColumn dataField="fecha" headerText="Fecha" width="120"/>
+					<mx:DataGridColumn dataField="plazo" headerText="Plazo" width="80"/>
+					<mx:DataGridColumn dataField="tipo_cambio" headerText="Tipo de Cambio" width="100"/>
+					<mx:DataGridColumn dataField="moneda" headerText="Moneda" width="80"/>
+					<mx:DataGridColumn dataField="cotizado" headerText="Cotizado" width="80">
+						<mx:itemRenderer>
+							<fx:Component>
+								<mx:Label text="$ {data.cotizado}"/>
+							</fx:Component>
+						</mx:itemRenderer>
+					</mx:DataGridColumn>
+					<mx:DataGridColumn dataField="comprador" headerText="Comprador" width="150"/>
+				</mx:columns>
+			</mx:DataGrid>
+		</mx:VBox>
+	</mx:TabNavigator>
+	
+	<fx:Declarations>
+		<!-- WEBSERVICES -->	
+		<mx:HTTPService id="ws_traerContactos" url="{loader.strHostUrl}ws_clientes2.php"  method="POST" requestTimeout="600" showBusyCursor="true" 
+						resultFormat="object" fault="faultHandler(event)" result="resultHandler(event)" >
+			<mx:request xmlns="">
+				<opcion>TRAER_CONTACTOS</opcion>
+				<offset>{offset}</offset>
+				<limit>{regsporpag}</limit>
+				<idcliente>{item.idcliente}</idcliente>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_traerEncabezadoCotizaciones" url="{loader.strHostUrl}ws_clientes2.php"  method="POST" 
+						requestTimeout="600" showBusyCursor="true" resultFormat="object" fault="faultHandler(event)" 
+						result="resultHandler(event)" >
+			<mx:request xmlns="">
+				<opcion>TRAER_ENCCOTIZACIONES</opcion>
+				<offset>{offset}</offset>
+				<limit>{regsporpag}</limit>
+				<idcliente>{item.idcliente}</idcliente>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_nuevo_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_clientes2.php">
+			<mx:request>
+				<opcion>CAPTURA_USUARIO</opcion>			
+				<idcliente>{txtClaveCliente.text}</idcliente>
+				<nombre_cliente>{txtNombreCliente.text}</nombre_cliente>
+				<direccion1>{txtDireccion1.text}</direccion1>
+				<direccion2>{txtDireccion2.text}</direccion2>
+				<clave_ciudad>{cbxCiudad.selectedItem.clave_ciudad}</clave_ciudad>
+				<cp>{txtCodigoPostal.text}</cp>
+				<rfc>{txtRFC.text}</rfc>
+				<limite_credito>{txtLimiteCredito.text}</limite_credito>
+				<status_credito>{}</status_credito>
+				<clave_zona>{}</clave_zona>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_edita_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_clientes2.php">
+			<mx:request>
+				<opcion>EDITA_USUARIO</opcion>			
+				<idcliente>{item.idcliente}</idcliente>
+				<nombre_cliente>{txtNombreCliente.text}</nombre_cliente>
+				<direccion1>{txtDireccion1.text}</direccion1>
+				<direccion2>{txtDireccion2.text}</direccion2>
+				<clave_ciudad>{cbxCiudad.selectedItem.clave_ciudad}</clave_ciudad>
+				<cp>{txtCodigoPostal.text}</cp>
+				<rfc>{txtRFC.text}</rfc>
+				<limite_credito>{txtLimiteCredito.text}</limite_credito>
+				<status_credito>{}</status_credito>
+				<clave_zona>{}</clave_zona>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:ArrayCollection id="ACDATA"/>
+	</fx:Declarations>
+	
+</mx:TitleWindow>

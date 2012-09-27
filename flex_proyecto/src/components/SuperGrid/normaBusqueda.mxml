@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" creationComplete="{init()}">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.ObjectUtil;
+			import mx.collections.ArrayCollection;
+		
+			import actionscripts.Iconos;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			
+			
+			[Bindable] public var _padreSuperGrid:SuperGrid = null;
+			[Bindable] public var _arrColumnas:Array = null;
+			[Bindable] public var _fromNorma:normaBusqueda = null;
+			
+			
+			
+			private function init():void{
+				cbWhere.dataProvider = ObjectUtil.copy(arrWhere) as ArrayCollection;
+				
+				getColumnasDisponibles();
+				if(_fromNorma!=null){
+					cbCampo.selectedIndex = _fromNorma.cbCampo.selectedIndex;
+					cbWhere.selectedIndex = _fromNorma.cbWhere.selectedIndex;					
+					if(_fromNorma.strTexto.visible) strTexto.text = _fromNorma.strTexto.text;
+					if(_fromNorma.strFecha.visible) strFecha.text = _fromNorma.strFecha.text;
+				}
+				getColumnasByType();				
+			}
+			
+			private function getColumnasByType():void{
+				var tipo:String  = "S";
+				var campo:String = cbCampo.selectedItem.dataField;
+				
+				for(var i:int=0;i<_padreSuperGrid._arrPropiedades.length;i++){
+					if(String(_padreSuperGrid._arrPropiedades[i].dataField) == campo){
+						if(_padreSuperGrid._arrPropiedades[i].tipo){
+							switch(String(_padreSuperGrid._arrPropiedades[i].tipo).toUpperCase()){
+								case "N":
+								case "NUMERO":
+								case "NUMBER":
+									tipo = "N";
+									break; 
+								
+								case "F":
+								case "FECHA":
+								case "DATE":
+									tipo = "F";
+									break;		
+							}
+						}
+					} 
+				}
+				
+				var arr:ArrayCollection = ObjectUtil.copy(arrWhere) as ArrayCollection;
+				var idx:int   = 8;
+				var count:int = 10;
+				
+				if(tipo == "F"){
+					idx   = 8;
+					count = 6;
+				}else if(tipo=="N"){
+					idx   = 14;
+					count = 4;
+				}
+				
+				for(var j:int=0;j<count;j++){
+					arr.removeItemAt(idx);
+				}
+				cbWhere.dataProvider  = arr;		
+				cbWhere.selectedIndex = 0;
+				
+				cbxChange();	
+			}
+			
+			private function cbxChange():void{
+				if(cbWhere.selectedItem.tipo != "-"){
+					strTexto.visible		   = false;
+					strNumero.visible		   = false;
+					strFecha.visible		   = false;
+					strTexto.includeInLayout   = false;					
+					strNumero.includeInLayout  = false;					
+					strFecha.includeInLayout   = false;
+					cbDistinct.includeInLayout = false;
+					cbDistinct.visible		   = false;
+						
+					var n:int = int(cbWhere.selectedItem.tipo);
+					if(n>=1 && n<=8){
+						strTexto.includeInLayout  = true;
+						strTexto.visible		  = true;
+					}else if(n>=9 && n<=13){
+						strNumero.includeInLayout = true;
+						strNumero.visible		  = true;						
+					}else if(n>=14 && n<=16){
+						strFecha.includeInLayout  = true;
+						strFecha.visible	      = true;						
+					}else{
+						cbDistinct.includeInLayout = true;
+						cbDistinct.visible		   = true;
+						cbDistinct.dataProvider    = _padreSuperGrid.getDistinctValuesFromColumn(cbCampo.selectedItem.dataField);
+					}
+					
+					validateNow();
+				}	
+			}
+			
+			
+			private function getColumnasDisponibles():void{
+				var gc:DataGridColumn;
+				var arr:ArrayCollection = new ArrayCollection();
+				
+				for(var i:int=0;i<_arrColumnas.length;i++){
+					gc = (_arrColumnas[i] as DataGridColumn);
+					if(gc.headerText!="" && gc.dataField && gc.dataField!=""){
+						arr.addItem({headerText: gc.headerText, dataField: gc.dataField });
+					}
+				}	
+				cbCampo.dataProvider = arr;
+				cbCampo.selectedIndex=0;
+			}
+			
+			public function getObjNorma():Object{
+				var obj:Object  = new Object();
+				obj.campo 		= cbCampo.selectedItem.dataField;
+				obj.where 		= cbWhere.selectedItem.tipo;	
+				obj.campo_desc  = cbCampo.selectedItem.headerText;
+				obj.where_desc  = cbWhere.selectedItem.descripcion;			
+				obj.texto 		= (strTexto.visible) ? strTexto.text : (strNumero.visible ? strNumero.text : (strFecha.visible ? strFecha.text : cbDistinct.selectedLabel ));
+				
+				if(cbWhere.selectedItem.tipo=="17"){
+					obj.where = "1";
+				}
+				return obj;
+			} 
+		]]>
+	</mx:Script>
+	
+	<mx:ArrayCollection id="arrWhere">
+		<mx:Object tipo="1"  descripcion="igual a" />
+		<mx:Object tipo="2"  descripcion="diferente a" />
+		<mx:Object tipo="3"  descripcion="comience con" />
+		<mx:Object tipo="4"  descripcion="no comience con" />
+		<mx:Object tipo="5"  descripcion="termine con" />
+		<mx:Object tipo="6"  descripcion="no termine con" />
+		<mx:Object tipo="7"  descripcion="contenga" />
+		<mx:Object tipo="8"  descripcion="no contenga" />
+		
+		<mx:Object tipo="-"  descripcion="-----------------------" />
+		
+		<mx:Object tipo="9"  descripcion="igual a" />
+		<mx:Object tipo="10" descripcion="menor a" />
+		<mx:Object tipo="11" descripcion="menor o igual a" />
+		<mx:Object tipo="12" descripcion="mayor a" />
+		<mx:Object tipo="13" descripcion="mayor o igual a" />
+		
+		<mx:Object tipo="-"  descripcion="-----------------------" />
+		
+		<mx:Object tipo="14" descripcion="con fecha de" />
+		<mx:Object tipo="15" descripcion="con fecha mayor a" />
+		<mx:Object tipo="16" descripcion="con fecha menor a" />
+		
+		<mx:Object tipo="-"  descripcion="-----------------------" />
+		
+		<mx:Object tipo="17" descripcion="coincida con" />
+		
+		
+	</mx:ArrayCollection>
+			
+			
+	<mx:ComboBox id="cbCampo" textAlign="left" labelField="headerText" width="140" change="{getColumnasByType()}" />
+	<mx:ComboBox id="cbWhere" labelField="descripcion" textAlign="left" change="{cbxChange()}" />
+		
+	
+	<mx:TextInput id="strTexto"  textAlign="left" width="140" enter="{_padreSuperGrid.buscaNewRespuestas()}" />
+	<mx:TextInput id="strNumero" visible="false" includeInLayout="false" restrict="0-9." textAlign="left" width="140" enter="{_padreSuperGrid.buscaNewRespuestas()}" />
+	<mx:DateField id="strFecha"  visible="false" includeInLayout="false" click="{strFecha.text=''}" width="140" monthNames="[Enero,Febrero,Marzo,Abril,Mayo,Junio,Julio,Agosto,Septiembre,Octubre,Noviembre,Diciembre]" dayNames="[D,L,M,M,J,V,S]" formatString="DD/MM/YYYY" yearNavigationEnabled="true" showToday="true" />
+	<mx:ComboBox  id="cbDistinct" visible="false" includeInLayout="false" itemRenderer="mx.controls.Label" width="140" textAlign="left" />
+	
+	<mx:HBox id="hbox1" paddingBottom="0" paddingLeft="0" paddingTop="0" horizontalGap="0">
+		<mx:LinkButton icon="{Iconos.ICON_MENOS}" toolTip="Borrar Norma" click="{_padreSuperGrid.borraNorma(this)}" />
+		<mx:LinkButton icon="{Iconos.ICON_MAS}"   toolTip="Agregar Norma" click="{_padreSuperGrid.agregaNorma(this)}" />	
+	</mx:HBox>
+	
+</mx:HBox>

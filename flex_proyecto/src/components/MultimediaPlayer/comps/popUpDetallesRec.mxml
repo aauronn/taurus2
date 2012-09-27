@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow title="Detalles del Recurso" xmlns:mx="http://www.adobe.com/2006/mxml" creationComplete="init()" width="550" height="300" close="cerrarPopUp();" keyDown="if(event.keyCode == Keyboard.ESCAPE)cerrarPopUp()" showCloseButton="true" alpha="1.0" layout="vertical" backgroundAlpha="1.0" >
+	<mx:Script>
+		<![CDATA[
+			
+			import actionscripts.Utils;
+			import components.MultimediaPlayer.events.YouTubeVideoEvent;
+			import mx.rpc.events.ResultEvent;
+			import actionscripts.Iconos;
+			import mx.rpc.events.FaultEvent;
+			import mx.managers.PopUpManager;
+			import mx.controls.Alert;
+			
+			[Bindable]public var recurso:Object;
+			[Bindable]public var itemRecurso:Object;
+			
+			private var cancelYoutubeVid:Boolean=false;
+			private var timerYoutube:Timer;
+			
+			public function init():void{
+				this.stage.focus=null;
+				txtTitulo.text=recurso.@titulo;
+				txtDescripcion.htmlText=recurso.@descripcion;
+				if(recurso.@tipo_recurso=='1'||recurso.@tipo_recurso=='2'){
+					lbnArchivo.includeInLayout=true;
+					lbnArchivo.visible=true;
+					lbnArchivo.addEventListener(MouseEvent.CLICK,descargarMultimedia);
+					lbnArchivo.label=recurso.@titulo;
+					lbnArchivo.setStyle("icon",Iconos.ICON_PACKAGE_MULT);
+				}
+				else{
+					if(recurso.@archivo!=""){
+						lbnArchivo.includeInLayout=true;
+						lbnArchivo.visible=true;
+						lbnArchivo.addEventListener(MouseEvent.CLICK,descargar);
+						lbnArchivo.label=recurso.@archivo_nombreoriginal;
+						lbnArchivo.setStyle("icon",itemRend.iconFile(recurso.@archivo));
+						
+					}
+				}
+				if (ExternalInterface.available){
+					ExternalInterface.addCallback("setVideoURL",setVideoURL);//AÑADIR AL INIT PARA QUE PUEDA HABER UN LLAMADO DE JAVASCRIPT A FLEX
+				}
+			}
+			
+			//FUNCION A LA QUE LLAMA JAVASCRIPT
+			public function setVideoURL(url:String): void{
+				if(!cancelYoutubeVid){
+					
+					timerYoutube.stop();
+					timerYoutube.removeEventListener(TimerEvent.TIMER, timerHandler);
+					this.cursorManager.removeBusyCursor();
+					this.enabled=true;
+					itemRecurso.@url_correcta=url;
+					Utils.goToUrl(itemRecurso.@url_correcta);
+				}
+			}
+			
+			private function descargar(event:MouseEvent):void{
+				var page:URLRequest = new URLRequest();
+				var rec_dir:String=''+String(recurso.@archivo).replace("../",'');
+				page.url="http://"+Virtual.strHostUrl+"/"+rec_dir;
+				var objBitacora:Object={modulo:'recursos', msg:"Archivo de "+recurso.@titulo};
+				Utils.downloadFile(DisplayObject(this.parentApplication),page,true,objBitacora);
+			}
+			
+			private function descargarMultimedia(event:MouseEvent):void{
+				getRecursoURL(recurso);
+			}
+			
+			private function getRecursoURL(row:Object):void{
+	        	itemRecurso=row;
+	        	if(itemRecurso!=null){
+		        	var cadena:String=String(itemRecurso.@url_recurso).toLocaleLowerCase();
+		        	var ext:String=(cadena.substr(-3)).toLocaleLowerCase();
+		        	if((ext.indexOf("mp3")!==-1)||(ext.indexOf("flv")!==-1)){
+		        		itemRecurso.@url_correcta=itemRecurso.@url_recurso;
+		        		Utils.goToUrl(itemRecurso.@url_correcta);
+		        		//descargarRecurso(itemRecurso);
+		        		return;
+		        	}
+		        	
+		        	else{
+		        		if((cadena.indexOf("youtube")!==-1) &&(cadena.indexOf("watch")!==-1)){
+		        			
+		        			cancelYoutubeVid=false;
+	        			
+		        			if (ExternalInterface.available){
+								ExternalInterface.call("createApplet",String(itemRecurso.@url_recurso),Utils.inbtwn(String(itemRecurso.@url_recurso),"v=", "&"));//QUITAR MODO ESCUCHAR F5, REFRESH, CERRAR VENTANA, ALT F4,ETC
+								this.cursorManager.setBusyCursor();
+								this.enabled=false;
+								timerYoutube=new Timer(15000);
+								timerYoutube.start();
+								timerYoutube.addEventListener(TimerEvent.TIMER, timerHandler);
+								
+							}
+		        			//traer_video_youtube.send({opcion:'TRAER_VIDEO_YOUTUBE',archivo:itemRecurso.@url_recurso});
+		        			return;		
+		        		}	
+		        	}
+		        	itemRecurso.@url_correcta="";
+	  			}
+	  			else{
+	  				itemRecurso=new XML();
+	  				itemRecurso.@url_correcta="";
+	  			}
+			}
+			
+			private function timerHandler(evt:TimerEvent):void{
+				(evt.target as Timer).stop();
+				cancelYoutubeVid=true;
+				this.cursorManager.removeBusyCursor();
+				this.enabled=true;
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			private function traer_video(evt:ResultEvent):void{
+				if(evt.result.toString()=="error"){
+					Alert.show("No se encontro el video en el servidor de Youtube, favor de intentar más tarde.","Error",Alert.OK,null,null,Iconos.ICON_ERROR);
+				}
+				else{
+					itemRecurso.@url_correcta=evt.result.toString();
+					//descargarRecurso(itemRecurso.@url_correcta);
+					Utils.goToUrl(itemRecurso.@url_correcta);
+				}
+			}
+					        
+	        public function descargarRecurso(rec:Object):void{
+	        	var page:URLRequest = new URLRequest();
+				page.url=rec.@url_correcta;
+				var objBitacora:Object={modulo:'recursos', msg:"Archivo de "+rec.@titulo};
+				Utils.downloadFile(DisplayObject(this.parentApplication),page,true,objBitacora);
+	        }
+						
+			private function cerrarPopUp():void{
+				txtTitulo.text="";
+				txtDescripcion.text="";
+				//txtAdjunto.text="";
+				PopUpManager.removePopUp(this);
+			}
+							
+		]]>
+	</mx:Script>
+	<mx:VBox width="100%" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+		<mx:HBox width="100%">
+			<mx:HBox width="20%">
+				<mx:Label text="Titulo:" fontWeight="bold"/>
+			</mx:HBox>
+			<mx:HBox width="80%">
+				<mx:Text width="100%" id="txtTitulo"/>
+			</mx:HBox>
+		</mx:HBox>
+		
+		<mx:Spacer height="10"/>
+		
+		<mx:HBox width="100%">
+			<mx:HBox width="20%">
+				<mx:Label text="Descripción:" fontWeight="bold"/>
+			</mx:HBox>
+			<mx:HBox width="80%">
+				<mx:TextArea width="100%" id="txtDescripcion" height="150" editable="false"/>
+			</mx:HBox>
+		</mx:HBox>	
+		
+		<mx:Spacer height="10"/>
+			
+		<mx:HBox width="100%">
+			<mx:HBox width="20%">
+				<mx:Label text="Archivos:" fontWeight="bold"/>
+			</mx:HBox>
+			<mx:HBox width="80%" horizontalAlign="left" id="hbLnk">
+				<mx:LinkButton maxWidth="{hbLnk.width}" includeInLayout="false" visible="false" id="lbnArchivo"/>
+			</mx:HBox>
+			<mx:HBox width="10%" >
+				<mx:LinkButton label="Regresar" icon="{Iconos.ICON_BACK}" click="cerrarPopUp()"/>
+			</mx:HBox>
+		</mx:HBox>	
+	</mx:VBox>
+	
+	
+	<mx:HTTPService showBusyCursor="true" id="traer_video_youtube" method="POST" resultFormat="text" fault="this.parentApplication.faultHandler(event)" result="traer_video(event);" url="http://{Virtual.strHostUrl}/tbrecursos_apoyo_ws.php"/>
+
+	
+</mx:TitleWindow>

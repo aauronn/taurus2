@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox horizontalAlign="right" paddingRight="5" verticalAlign="middle" xmlns:mx="http://www.adobe.com/2006/mxml"  height="30">
+	<mx:Script>
+		<![CDATA[
+			
+			import actionscripts.Utils;
+			import actionscripts.Iconos;
+			import mx.utils.StringUtil;
+			import mx.controls.Label;
+			import mx.managers.PopUpManager;
+			import mx.controls.Alert;
+			import mx.controls.LinkButton;
+			
+			override public function set data(value:Object):void{
+                // not sure of the details on when or why, but sometimes this method is passed a null value
+                if(value != null){
+                    super.data = value;
+                    // set itemRenderer's state based on data value
+                    miHbox.removeAllChildren();
+                    addLinkButton();
+                }
+            }
+			
+			private function sendEvent(event:MouseEvent):void{
+				//Alert.show(event.target.name);			
+				var page:URLRequest = new URLRequest();
+				var rec_dir:String=''+String(this.data.@archivo).replace("../",'');
+				page.url="http://"+Virtual.strHostUrl+"/"+rec_dir;
+				//var objBitacora:Object={modulo:'recursos', msg:"Archivo de "+this.data.@titulo};
+				//Utils.downloadFile(DisplayObject(this.parentApplication),page,true,objBitacora);
+				navigateToURL(page,"_blank");
+			}
+			
+			private function detalles(event:MouseEvent):void{
+				//Alert.show(event.target.name);
+				var detalles:popUpDetallesRec=new popUpDetallesRec();
+				detalles.recurso=this.data;
+				this.stage.focus=null;
+				PopUpManager.addPopUp(detalles,DisplayObject(this.parentApplication), true);
+				PopUpManager.centerPopUp(detalles);
+				
+			}
+			
+			private function multimediaData(event:MouseEvent):void{
+				var multimediaWin:multimediaContainer=new multimediaContainer();
+				multimediaWin.itemSel=this.data;
+				this.stage.focus=null;
+				PopUpManager.addPopUp(multimediaWin,DisplayObject(this.parentApplication), true);
+				PopUpManager.centerPopUp(multimediaWin);
+
+			}
+			
+			private function addLinkButton():void{
+			
+				if(data.@tipo_recurso=='1'||data.@tipo_recurso=='2'){
+					var linkMult:LinkButton=new LinkButton();
+					linkMult.addEventListener(MouseEvent.CLICK,multimediaData);
+					linkMult.setStyle("icon",Iconos.ICON_MEDIA_PLAY_GREEN16);
+					linkMult.toolTip=data.@titulo;	
+					miHbox.addChild(linkMult);
+				}
+				else{
+					var path:String=data.@archivo;
+					if(path!=""){
+						var link:LinkButton=new LinkButton();
+						link.setStyle("icon",iconFile(path));
+						link.addEventListener(MouseEvent.CLICK,sendEvent);
+						link.name=path;
+						link.id=path;	
+						miHbox.addChild(link);
+					}	
+				}
+				
+				var link2:LinkButton=new LinkButton();
+				link2.setStyle("icon",Iconos.ICON_DETALLES);
+				link2.addEventListener(MouseEvent.CLICK,detalles);
+				link2.toolTip="Ver Detalles";
+				miHbox.addChild(link2);								
+			}
+			
+			public static function iconFile(file:String):Class{
+				
+				var archivo:Array=file.split(".");
+				var extension:String=archivo.pop();
+				
+				switch(extension.toUpperCase()){
+					case "XLS":
+					case "XLSX":
+						return Iconos.ICON_EXCEL;
+					break;
+					
+					case "DOC":
+					case "DOCX":
+					case "RTF":
+					case "WPS":
+						return Iconos.ICON_WORD;
+					break;
+					
+					case "PPT":
+					case "PPTX":
+					case "PPS":
+					case "PPSX":
+						return Iconos.ICON_PPOINT;
+					break;
+					
+					
+					case "JPG":
+					case "JPEG":
+					case "GIF":
+					case "PNG":
+					case "BMP":
+						return Iconos.ICON_IMG;
+					break;
+					
+					case "ZIP":
+					case "RAR":
+					case "7Z":
+						return Iconos.ICON_RAR;
+					break;
+					
+					case "TXT":
+						return Iconos.ICON_TXT;
+					break;
+					
+					case "PDF":
+						return Iconos.ICON_PDF;
+					break;
+					
+					case "FLV":
+					case "MP3":
+						return Iconos.ICON_PLAY_OVER;
+					break;
+					
+					default: 
+					return Iconos.ICON_UNKNOWN;
+				}
+				
+			}
+			
+		]]>
+	</mx:Script>
+	<mx:HBox id="miHbox" verticalAlign="middle" width="100%" horizontalAlign="right" height="100%">
+				
+	</mx:HBox>
+</mx:HBox>
+ 

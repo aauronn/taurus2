@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Image xmlns:mx="http://www.adobe.com/2006/mxml"
+	initialize="init()">
+	<mx:Metadata>
+		[Style(name="borderColor", type="uint", 
+			format="Color", inherit="no")]
+		[Style(name="borderThickness", type="Number", 
+			format="Length", inherit="no")]
+		[Style(name="borderAlpha", type="Number", 
+			format="Length", inherit="no")]
+	</mx:Metadata>
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			// initial position
+			private var _recalX:Number;
+			private var _recalY:Number;
+			
+			public var borderThickness:Number=0;
+			public var borderColor:uint=0x0;
+			public var borderAlpha:Number=1;
+			public var cornerRadius:Number=0;
+			
+			// initialization
+			private function init():void
+			{
+				// we save the initial position
+				_recalX = this.x;
+				_recalY = this.y;
+			}
+			
+			private function colorPromedium():uint{
+				var bmpData:BitmapData = new BitmapData(this.width, this.height);
+	             bmpData.draw(this);
+	
+	             var r:Number = 0;
+	             var g:Number = 0;
+	             var b:Number = 0;
+	 
+	             var count:Number = 0;
+	             var pixel:Number;
+	 
+	             for (var x:int = 0; x < bmpData.width; x++) {
+	                 for (var y:int = 0; y < bmpData.height; y++) {
+	                     pixel = bmpData.getPixel(x, y);
+	  
+	                     r += pixel >> 16 & 0xFF;
+	                     g += pixel >> 8 & 0xFF;
+	                     b += pixel & 0xFF;
+	  
+	                     count++
+	                 }
+	             }
+	  
+	             r /= count;
+	             g /= count;
+	             b /= count;
+ 	 
+	             return r << 16 | g << 8 | b;
+			}
+			
+			// overriding the update function
+ 			override protected function updateDisplayList(
+ 				w:Number,h:Number):void
+			{
+				super.updateDisplayList(w,h);
+				
+				try{
+					//Alert.show(this.height.toString()+" - "+this.contentHeight.toString());				
+					// si no ingrese ningun color en especifico, obtener el color promedio
+					var bmpData:BitmapData = new BitmapData(this.width, this.height);
+		             bmpData.draw(this);
+		
+		             var r:Number = 0;
+		             var g:Number = 0;
+		             var b:Number = 0;
+		 
+		             var count:Number = 0;
+		             var pixel:Number;
+		 
+		             for (var x:int = 0; x < bmpData.width; x++) {
+		                 for (var y:int = 0; y < bmpData.height; y++) {
+		                     pixel = bmpData.getPixel(x, y);
+		  
+		                     r += pixel >> 16 & 0xFF;
+		                     g += pixel >> 8 & 0xFF;
+		                     b += pixel & 0xFF;
+		  
+		                     count++
+		                 }
+		             }
+		  
+		             r /= count;
+		             g /= count;
+		             b /= count;
+	 	 
+		             borderColor = r << 16 | g << 8 | b;
+					
+					
+					// clear graphics
+					// we want only one rectangle
+					graphics.clear();
+					// set line style with with 0 and alpha 0
+					graphics.lineStyle(0,borderColor,0,false);
+					// draw rectangle
+					graphics.beginFill(borderColor,borderAlpha);
+					var thickness:Number = borderThickness;
+					var startX:Number;
+					var startY:Number;
+					var endX:Number;
+					var endY:Number;
+					startX = -thickness;
+					endX = contentWidth + thickness*2;
+					startY = -thickness;
+					endY = contentHeight + thickness*2;
+					if (getStyle("horizontalCenter") == undefined)
+					{
+						// adjust the position 
+						// calculation based on initial position
+						x = _recalX + thickness;
+					}
+					if (getStyle("horizontalAlign") == "center")
+					{
+						// adjust the position 
+						// calculation based on initial position
+						startX = Math.floor((width - contentWidth)/2) - thickness;
+					}
+					if (getStyle("verticalCenter") == undefined)
+					{
+						// adjust the position 
+						// calculation based on initial position
+						y = _recalY + thickness;
+					}
+					if (getStyle("verticalAlign") == "middle")
+					{
+						// adjust the position 
+						// calculation based on initial position
+						startY = Math.floor((height - contentHeight)/2) - thickness;
+					}
+					//graphics.drawRect(startX,startY,endX,endY);
+					graphics.drawRoundRectComplex(startX, startY, endX, endY, cornerRadius, cornerRadius, cornerRadius, cornerRadius);
+					
+					graphics.endFill();
+				}catch(ex:Error){
+					
+				}
+				
+				
+			} 
+		]]>
+	</mx:Script>
+</mx:Image>

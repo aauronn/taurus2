@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" title="Reconectar al sistema" creationComplete="{init()}" layout="vertical" close="{loader.logout()}"
+				showCloseButton="true" backgroundColor="#FFFFFF" cornerRadius="9" styleName="catalogPanel" backgroundAlpha="1.0" horizontalAlign="center">
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.StringUtil;
+			import actionscripts.Iconos;		
+			import mx.managers.PopUpManager;
+			import mx.controls.Alert;
+			
+			
+			private function init():void{
+				loader.msgAviso("La sesión ha expirado.\nDeberá volver a logearse",3);
+				txtUsuario.setFocus();
+			}
+			
+			public function resultReLogin():void{
+				switch(StringUtil.trim(ws_relogin.lastResult.toString())){
+					case "ok": 
+						PopUpManager.removePopUp(this);
+						break;
+					
+					case "no":
+						loader.msgAviso("El usuario y contraseña no coincide con el del usuario logeado",2);
+						break;
+					
+					default:
+						if(loader.debug){
+							loader.msgAviso("resultReLogin: "+ws_relogin.lastResult.toString(),2);
+						}else{
+							loader.msgAviso("resultReLogin-> Error al realizar la operación",3);
+						}		
+				}			 
+			}
+			
+			public function validar():void{
+				var errores:String="";
+				
+				if(StringUtil.trim(txtUsuario.text)==""){
+					errores = "- El nombre de usuario está vacío.\n\n";
+				}else{
+					if(String(loader.usuario).toUpperCase() != txtUsuario.text.toUpperCase()){
+						errores = "- El nombre de usuario NO coincide con el logeado al sistema.\n\n";
+					}
+				}
+				
+				if(StringUtil.trim(txtPassword.text)==""){
+					errores += "- La contraseña está vacía.\n\n";
+				}
+				
+				if(errores==""){
+					ws_relogin.send();
+				}else{
+					loader.msgAviso(errores,2);	
+				}
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%">
+		<mx:VBox width="100%" >
+			<mx:Form width="100%">
+				<mx:FormItem label="Usuario:" fontWeight="bold">
+					<mx:TextInput width="100%" id="txtUsuario" enter="{validar()}" />
+				</mx:FormItem>
+				<mx:FormItem label="Contraseña:" fontWeight="bold">
+					<mx:TextInput width="100%" id="txtPassword"  displayAsPassword="true" enter="{validar()}"/>
+				</mx:FormItem>
+			</mx:Form>
+		</mx:VBox>		
+		
+		<mx:VBox width="48" height="100%" horizontalAlign="center" verticalAlign="middle">
+			<mx:Image source="{Iconos.KEYS48}" />	
+		</mx:VBox>
+	</mx:HBox>
+	
+	<mx:HRule width="100%" />
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button label="Logear" click="{validar()}" icon="{Iconos.REDO16}" />
+		<mx:Button label="Salir"  click="{loader.logout()}" icon="{Iconos.REMOVE16}" />
+	</mx:HBox>
+	
+	
+	<mx:HTTPService requestTimeout="30" fault="loader.dp.faultHandler(event)" id="ws_relogin" method="POST" showBusyCursor="true" result="{resultReLogin();loader.dp.removeLoader()}" invoke="loader.dp.cargaLoader(this)" resultFormat="text" url="{loader.strHostUrl}login.php">
+		<mx:request>
+			<opcion>RELOGIN_USUARIO</opcion>
+			<idusuario>{loader.id}</idusuario>
+			<usuario>{txtUsuario.text}</usuario>
+			<password>{txtPassword.text}</password>
+		</mx:request>
+	</mx:HTTPService>
+	
+	
+</mx:TitleWindow>

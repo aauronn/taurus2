@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" 
+		  xmlns:controls="actionscripts.com.rphelan.controls.*" xmlns:components="components.*" creationComplete="{init()}">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Iconos;
+			import actionscripts.Utils;
+			import actionscripts.com.rphelan.controls.menuClasses.Accelerator;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.controls.menuClasses.MenuBarItem;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.InvokeEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			
+			[Bindable] public var modulo:String="";
+			[Bindable] private var urlCSWEB:String = "http://www.absason.com";
+			
+			[Bindable] private var strEncuestasLabel:String = "Encuestas▼"; //ES VARIABLE PORQUE SE NECESITA REVISAR CUANDO SE OBTIENEN LAS ENCUESTAS DISPONIBLES
+			[Bindable] public var user:Object;
+			
+			
+			
+			private var _accelerators:ArrayCollection;
+			
+			
+			private function init():void{
+				
+				stage.addEventListener( KeyboardEvent.KEY_UP, onKeyUp, false, 0, true );
+				generarMenu(); //PARA GENERAR EL MENU
+				
+				//ws_busca_avisos.send();
+				
+				loadFirstModule();
+			}
+			
+			private function generarMenu():void{
+			//	ws_get_encuestas.send(); //ENCUESTAS Y EVALUACIONES DISPONIBLES
+			//	ws_get_archivos.send(); //ARCHIVOS DISPONIBLES
+			//	ws_get_salas.send(); //SALAS CHAT DISPONIBLES
+				loader.dp.revisaPermisos(arrMenu); //REVISAR PERMISOS PARA REMOVER ITEMS DEL MENU, ETC
+				menuBar.dataProvider = arrMenu;	
+			}
+			
+			private function verificarTipoUsuario(num:Number):String
+			{//Grupo de Permisos
+				var ret:String = "";
+				switch(num){
+					//Alumno
+					case 1:
+						ret = "./flex_modulos/Foro/Alumno/Foro.swf";
+						break;
+					
+					case 3:
+						ret = "./flex_modulos/Foro/Maestro/Foro.swf";
+						break;
+					
+					case 2:
+						ret = "./flex_modulos/Foro/Administrador/Foro.swf";
+						break;
+					
+					case 4:
+						ret = "./flex_modulos/Foro/Padre/Foro.swf";
+						break;
+				}
+				return ret;
+			}
+			
+			private function loadFirstModule():void{				
+				if(arrMenu.length > 0){ //PARA MOSTRAR EL PRIMER MODULO (BIENVENIDA, ETC)
+					if(arrMenu[0].src){
+						modulo = arrMenu[0].src;
+						loadUnloadModule(null);	
+						markSelectedMenuItems();
+						
+					}
+				}
+				else{
+					loader.msgAviso("Usted no cuenta con permisos asignados", 2);
+				}	
+			}
+			
+			private function ventanaResize():void{
+				this.validateNow();
+			}
+			
+			private function markSelectedMenuItems():void{
+				recursiveArrMenu(ArrayCollection(menuBar.dataProvider));    	
+				for each(var elem:MenuBarItem in menuBar.menuBarItems){
+					if(elem.data && elem.data.selected) {
+						elem.setStyle("fontWeight", "bold");
+					}
+					else{
+						elem.setStyle("fontWeight", "normal");
+					}
+				}
+			}
+			
+			private function resetMenuState(arrItms:Object):void{
+				for each(var itm:Object in arrItms){
+					if(itm.children){
+						resetMenuState(itm.children);
+					}
+					if(itm.selected) {
+						itm.selected = false;
+					}
+				}
+				markSelectedMenuItems();
+			}
+			
+			private function recursiveArrMenu(arrCollection:ArrayCollection, currentObj:Object = null, count:int=0, arrPadres:ArrayCollection = null ):void{
+				if(count == 0){
+					count++;
+					for(var i:int = 0; i < arrCollection.length; i++){
+						arrPadres = new ArrayCollection();
+						arrPadres.removeAll();
+						recursiveArrMenu(arrCollection, arrCollection[i], count, arrPadres );	
+					}
+				}
+				else{
+					count++;
+					if(currentObj.hasOwnProperty('children') && (currentObj.children as Array).length > 0){
+						arrPadres.addItem(currentObj);
+						for(var j:int = 0; j < (currentObj.children as Array).length; j++){
+							recursiveArrMenu(arrCollection, (currentObj.children as Array)[j], count, arrPadres );	
+						}
+					}
+					else{
+						if(( currentObj.hasOwnProperty('selected') && currentObj.selected )){
+							for(var k:int=0; k < arrPadres.length; k++){
+								arrPadres[k].selected = true;
+							}
+						}
+					}
+				}
+			}
+			
+			private function clickHandler(event:*):void{
+				var ventana:*;
+				if(event is MouseEvent){ //SI ES EL TOP-LEVEL DEL MENU
+					if(event.target.data && event.target.data.src && String(event.target.data.src).length > 0){
+						if(String(event.target.data.src).match("url:")){ //HANDLER PARA LINKS
+							Utils.goToUrl(String(event.target.data.src).split("url:")[1], null, "_blank");
+						}
+						else{
+							modulo = String(event.target.data.src);
+							loadUnloadModule(null);
+							resetMenuState(menuBar.dataProvider);
+							MenuBarItem(event.target).data.selected = true;
+							markSelectedMenuItems();
+						}        			
+					}
+					else{
+						if(event.target.data.hasOwnProperty('ventana')){
+							switch(int(event.target.data.ventana)){
+								case 1:
+									break;
+								default:
+									Alert.show("Módulo en desarrollo.", "Información", 4, null, null, Iconos.INFO, 4);
+									break;
+							}
+						}
+						else{
+							if(event.target.data && !event.target.data.children && event.target.data.type != "separator"){// MOSTRAR EL MENSAJE SI NO TIENE HIJOS EL ELEMENTO DEL MENU
+								Alert.show("Módulo en desarrollo.", "Información", 4, null, null, Iconos.INFO, 4);
+							}
+						}
+					}
+				} 
+				else{ //SI SON LOS HIJOS DEL MENU
+					if(event.item.src && String(event.item.src).length > 0){
+						if(String(event.item.src).match("url:")){ //HANDLER PARA LINKS
+							Utils.goToUrl(String(event.item.src).split("url:")[1], null, "_blank");
+						}
+						else{
+							modulo = String(event.item.src);
+							loadUnloadModule(null);
+							resetMenuState(menuBar.dataProvider);
+							event.item.selected = true;
+							markSelectedMenuItems();
+						}
+					}
+					else{
+						if(event.item.hasOwnProperty('ventana')){
+							switch(int(event.item.ventana)){
+								case 1:
+									/*ventana = new thumbArchivo();
+									(ventana as thumbArchivo).item = event.item.data;
+									this.stage.focus=null;
+									PopUpManager.addPopUp(ventana,DisplayObject(this.parentApplication),true);
+									PopUpManager.centerPopUp(ventana);
+									*/
+									break;
+									
+								default:
+									Alert.show("Módulo en desarrollo.", "Información", 4, null, null, Iconos.INFO, 4);
+									break;
+							}
+						}
+						else{
+							if(!event.item.children && event.item.type != "separator"){// MOSTRAR EL MENSAJE SI NO TIENE HIJOS EL ELEMENTO DEL MENU
+								Alert.show("Módulo en desarrollo.", "Información", 4, null, null, Iconos.INFO, 4);
+							}
+						}
+					}
+				}
+			}	
+			
+			public function loadUnloadModule(evt:DataProvidersEvent):void{
+				
+				mx.managers.ToolTipManager.toolTipClass = mx.controls.ToolTip;
+				
+				if(mod.url){
+					if(mod.url.indexOf(modulo) == -1){
+						//desconectarUserChat(mod);
+					}
+					else{
+						var modTemp:String = modulo.split("?").length>1?modulo+"&revision="+loader.strRevision:modulo+"?revision="+loader.strRevision;
+						if(mod.url.indexOf(modTemp) == -1){
+							//desconectarUserChat(mod);
+						}
+					}
+				}
+				
+				if(modulo && modulo!=""){					
+					mod.url = modulo.split("?").length>1?modulo+"&revision="+loader.strRevision:modulo+"?revision="+loader.strRevision;					
+				}else{
+					mod.unloadModule();
+					mod.url=null;
+				}
+			}	
+			
+			private function openCSWEB():void{
+				var u:URLRequest = new URLRequest(urlCSWEB);				
+				navigateToURL(u,"_blank");
+			}
+			/*
+			private function cambiarPassword():void{
+				var ventana:VentanaCambiaPassword = new VentanaCambiaPassword();
+				PopUpManager.addPopUp(ventana,this,true);
+				ventana.title="Cambiar Contraseña";
+				ventana.txtClaveActual.text="";
+				ventana.txtClaveNueva.text="";
+				ventana.txtClaveNueva2.text="";
+				PopUpManager.centerPopUp(ventana);       
+			}
+			
+			private function nuevoMensaje():void{
+				var ventana:VentanaEnviaMensaje = new VentanaEnviaMensaje();
+				PopUpManager.addPopUp(ventana,this,true);
+				ventana.lblNombre.text = loader.nombrecompleto;
+				PopUpManager.centerPopUp(ventana);       
+			}
+		
+			private function openTwitter():void{
+				var ventana:VentanaTwitter = new VentanaTwitter();
+				PopUpManager.addPopUp(ventana,this,true);
+				PopUpManager.centerPopUp(ventana);	
+			}
+			*/
+		
+			
+			private function parseAccelerators( arrMenuA:* ):void
+			{
+				_accelerators = new ArrayCollection();
+				
+				
+				
+				
+				for each(var item:Object in arrMenuA )
+				{
+					if(item["children"]){
+						for each(var child:Object in item.children )
+						{
+							if( child["accelerator"]){
+								var itemA:Accelerator = Accelerator.fromString(child["accelerator"]);
+								itemA.data = String(child["src"]);
+								_accelerators.addItem( itemA );
+							}
+						}
+					}
+				}
+			}
+			
+			private function onKeyUp( event:KeyboardEvent ):void
+			{
+				for each( var accelerator:Accelerator in _accelerators )
+				{
+					if( accelerator.test( event ) )
+						handleMenuFunction( accelerator.data as String );
+				}
+			}
+			
+			private function handleMenuFunction( menuItem:String ):void
+			{
+				
+				if(menuItem){
+					if(String(menuItem).match("url:")){ //HANDLER PARA LINKS
+						Utils.goToUrl(String(menuItem).split("url:")[1], null, "_blank");
+					}
+					else{
+						modulo = String(menuItem);
+						loadUnloadModule(null);
+						resetMenuState(menuBar.dataProvider);
+						//menuItem.se.selected = true;
+						markSelectedMenuItems();
+					}
+				}
+				else{
+					
+					Alert.show("Módulo en desarrollo.", "Información", 4, null, null, Iconos.INFO, 4);
+					
+				}
+				
+				//Alert.show( "Menu item selected: "+menuItem );
+			}
+			
+			
+			protected function ws_traerUsuario_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				var userAC:ArrayCollection = new ArrayCollection();
+				userAC = Utils.getRows(event.result.tablas,'tabla0');
+				user = Utils.clone(userAC[0]);
+				//Alert.show(user.nombre);
+				
+				pLogged.title = "Bienvenido " + String(user.name);
+				pLogged.invalidateProperties();
+				pLogged.invalidateDisplayList();
+			}
+			
+			protected function cerrarSesion(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				loader.logout();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:Panel id="pLogged" title="Bienvenido - {loader.nombre}" width="100%" height="100%"  >
+		<s:layout>
+			<s:HorizontalLayout horizontalAlign="center"/>
+		</s:layout>
+		
+		<s:VGroup id="daVBox"  width="99%" height="99%">
+			<s:HGroup width="100%" verticalAlign="middle" gap="15">
+				<!--LOGO-->
+				<mx:Image source="{loader.strHostUrl+'/imagenes/toro.png'}" maxHeight="72" maxWidth="95" toolTip="{loader.strNombreSistema}" />
+				<!--MENU BAR-->
+				<s:VGroup width="100%">					
+					<s:HGroup width="100%"> 
+						<mx:Panel width="100%" verticalScrollPolicy="off" id="header" horizontalCenter="left" layout="horizontal" label="Panel" styleName="catalogPanel" headerHeight="0" paddingTop="2" paddingBottom="2" paddingLeft="2" verticalAlign="top">
+							<mx:HBox width="{header.width-10}" id="hboxBtn" height="{((menuBar.width + 95 >daVBox.width)?50:33)}"  verticalScrollPolicy="off"  horizontalGap="0" paddingTop="3"> 
+								<controls:AcceleratorMenuBar id="menuBar" top="10" left="10" fontWeight="normal" color="#000000" fontSize="12" fontFamily="Arial" cornerRadius="6" click="{clickHandler(event)}" itemClick="{clickHandler(event)}"/>
+								<!-- click="{clickHandler(event)}" itemClick="{clickHandler(event)}"-->
+							</mx:HBox>
+						</mx:Panel>
+					</s:HGroup>		
+				</s:VGroup>
+			</s:HGroup>
+			
+			<mx:HBox id="contenedor" width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">						
+				<components:CustomModuleLoader id="mod" height="100%" width="100%"/>						
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalAlign="right">
+				<s:Button id="btnCerrarSesion" label="Cerrar Sesion" click="cerrarSesion(event)"/>
+			</mx:HBox>
+		</s:VGroup>
+	</s:Panel>
+	
+	<!--  permiso="proyectos_consultar"-->
+	<fx:Declarations>
+		<s:ArrayCollection id="arrMenu">
+			<fx:Object src="flex_modulos/Bienvenida/Bienvenida.swf" label="Inicio" icon="{Iconos.HOME24}" />
+			<fx:Object label="|" type="separator" data="|" enabled="false" />
+			
+			<fx:Object src="flex_modulos/proyectos/proyectos.swf" label="Proyectos" icon="{Iconos.PIZARRON24}" 
+					   permiso="proyectos_consultar"/>
+			<fx:Object label="|" type="separator" data="|" enabled="false" permiso="proyectos_consultar"/>
+			 
+			<fx:Object src="" label="Exportar▼" icon="{Iconos.CHAT24}"  children="{[
+					   { src: './flex_modulos/ExportarContpaq/exportarCompaq.swf', label: 'Exportar a ContPaq', icon: Iconos.EXPORT16, 
+					   accelerator:'', permiso: 'contpaq_consultar'},
+					   { src: './flex_modulos/BuroCredito/BuroCredito.swf', label: 'Buro de Credito', icon: Iconos.EXPORT16, 
+					   accelerator:'', permiso: 'buroc_consultar'},
+					   { src: './flex_modulos/Nomina/Nomina.swf', label: 'Nóminas', icon: Iconos.EXPORT16, 
+					   accelerator:'', permiso: 'Nomina_consultar'}
+					   ]}"
+					   />
+			
+			<fx:Object label="|" type="separator" data="|" enabled="false" />
+			
+			<fx:Object src="" label="Registro▼" icon="{Iconos.PIZARRON24}" children="{[
+					   {src: './flex_modulos/Registro/Registro.swf', label:'ABSA Sonora', icon:Iconos.PIZARRON24,
+					   		accelerator:'', permiso:'rabsasonora_consultar'},
+					   {src: './flex_modulos/Registro/RegistroChihuahua.swf', label:'ABSA Norte', icon:Iconos.PIZARRON24,
+					   		accelerator:'', permiso:'rabsanorte_consultar'}
+					   ]}"
+					   />
+			<fx:Object label="|" type="separator" data="|" enabled="false" />
+			
+			<fx:Object src="" label="Administración▼" icon="{Iconos.CHAT24}" permiso="administracion_consultar" children="{[
+					   { src: './flex_modulos/catalogos/catalogos.swf', label: 'Catalogos del Sistema', icon: Iconos.CUBOS16, accelerator:'', permiso: 'administracion_consultar'}
+					   ]}"
+			/>
+		</s:ArrayCollection>
+		
+		
+	</fx:Declarations>
+</s:Module>

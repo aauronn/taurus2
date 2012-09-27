@@ -1,0 +1,193 @@
+
+	// --------------------------------
+	// 		CAPTURA TIPO DE USUARIO
+	// --------------------------------
+if($_POST["opcion"]=="NUEVO_REGISTRO"){
+	$titulo      = textToDB($_POST["titulo"]);
+	$descripcion = textToDB($_POST["descripcion"]);
+	
+	if(trim($titulo)==""){
+		print "El titulo no puede estar vacío";
+		exit;
+	}
+	
+	
+	$strsql="INSERT INTO cttipousuarios (titulo,descripcion) VALUES ('$titulo','$descripcion')";
+	
+	$db->starttrans();	
+	
+	if(($rs=$db->execute($strsql))){
+		/*
+		$id = getIdActual($db,'cttipousuarios_idtipousuario_seq');
+		if($id=="" || !is_numeric($id)){
+			print "Error id";
+			exit;
+		}
+		
+		if(trim($_REQUEST["permisosRemover"])!=""){
+			$permisos_remover=explode(",",textToDB($_REQUEST["permisosRemover"]));
+			foreach ($permisos_remover as $permiso_remover){
+				if(trim($permiso_remover)!=""){
+					$strsql2="delete from tbpermisos_tipos_usuario where idtipousuario='".$id."' and clavepermiso='$permiso_remover'";
+					$rs2=$db->Execute($strsql2);
+				}
+			}
+		}
+		
+		if(trim($_REQUEST["permisosAgregar"])!=""){
+			$permisos_agregar=explode(",",textToDB($_REQUEST["permisosAgregar"]));
+			foreach ($permisos_agregar as $permiso_agregar){
+				if(trim($permiso_agregar)!=""){
+					$strsql2="insert into tbpermisos_tipos_usuario (idtipousuario,clavepermiso) values ('".$id."', '$permiso_agregar')";
+					$rs2=$db->Execute($strsql2);
+				}
+			}
+		}
+		
+	}
+	else{
+		if(strpos(strtoupper($db->ErrorMsg()),strtoupper("cttipousuarios_titulo_ukey"))!=0){
+			print "yaexiste";
+		}
+		else{
+			print "E1: ".$db->errormsg();//dbg
+		}
+	}
+*/
+	
+	if($db->completetrans()){
+		print "ok";
+	}
+	else{
+		$db->rollbacktrans();
+		print "E3: ".$db->errormsg()." - ".$strsql;//dbg								
+	}
+}
+
+
+
+
+
+	// --------------------------------
+	// 		EDITA TIPO DE USUARIO
+	// --------------------------------
+if($_POST["opcion"]=="EDITA_REGISTRO"){	
+	$id          = textToDB($_POST["id"]);
+	$titulo      = textToDB($_POST["titulo"]);
+	$descripcion = textToDB($_POST["descripcion"]);
+	
+	if($id=="" || !is_numeric($id)){
+		print "Error id";
+		exit;
+	}
+	if(trim($titulo)==""){
+		print "El titulo no puede estar vacío";
+		exit;
+	}
+	
+	$db->starttrans();	
+	
+	$strsql="UPDATE cttipousuarios SET titulo='$titulo',descripcion='$descripcion' WHERE idtipousuario=$id ";
+	
+	
+	if(($rs=$db->execute($strsql))){
+
+		if(trim($_REQUEST["permisosRemover"])!=""){
+			$permisos_remover=explode(",",textToDB($_REQUEST["permisosRemover"]));
+			foreach ($permisos_remover as $permiso_remover){
+				if(trim($permiso_remover)!=""){
+					$strsql2="delete from tbpermisos_tipos_usuario where idtipousuario='".$id."' and clavepermiso='$permiso_remover'";
+					$rs2=$db->Execute($strsql2);
+				}
+			}
+		}
+		
+		if(trim($_REQUEST["permisosAgregar"])!=""){
+			$permisos_agregar=explode(",",textToDB($_REQUEST["permisosAgregar"]));
+			foreach ($permisos_agregar as $permiso_agregar){
+				if(trim($permiso_agregar)!=""){
+					$strsql2="insert into tbpermisos_tipos_usuario (idtipousuario,clavepermiso) values ('".$id."', '$permiso_agregar')";
+					$rs2=$db->Execute($strsql2);
+				}
+			}
+		}
+	}
+	else{
+		if(strpos(strtoupper($db->ErrorMsg()),strtoupper("cttipousuarios_titulo_ukey"))!=0){
+			print "yaexiste";
+		}
+		else{
+			print "E1: ".$db->errormsg();
+		}
+	}
+	
+	if($db->completetrans()){
+		print "ok";
+	}
+	else{
+		$db->rollbacktrans();
+		print "E4: ".$db->errormsg();
+	}
+}
+
+// --------------------------------
+// 		OBTIENE LOS PERMISOS SEGUN EL TIPO DE USUARIO
+// --------------------------------
+if($_REQUEST["opcion"]=="PERMISOS_TIPO_USUARIO"){
+	    	
+	$grupos=array();
+	$strsql="select * from tbpermisos_grupos order by clavepermisogrupopadre NULLS FIRST, clavepermisogrupo";
+	$rs=$db->Execute($strsql);
+	if($rs){
+		while($row=$rs->fetchRow()){
+			array_push($grupos,$row);
+		}
+	}
+	
+	$permisos_asignados=array();
+	$permisos_disponibles=array();
+	
+	if(isset($_REQUEST["idtipousuario"]) && $_REQUEST["idtipousuario"]!=''){
+		$strsql="select * from tbpermisos_disponibles where clavepermiso in (select clavepermiso from tbpermisos_tipos_usuario where idtipousuario='".$_REQUEST["idtipousuario"]."' )order by clavepermisogrupo,accion";
+		//print $strsql;
+		$rs=$db->Execute($strsql);
+		if($rs){
+			while($row=$rs->fetchRow()){
+				array_push($permisos_asignados,$row);
+			}
+		}
+		
+		
+		
+		$strsql="select * from tbpermisos_disponibles where clavepermiso not in (select clavepermiso from tbpermisos_tipos_usuario where idtipousuario='".$_REQUEST["idtipousuario"]."' )order by clavepermisogrupo,accion";
+		$rs=$db->Execute($strsql);
+		if($rs){
+			while($row=$rs->fetchRow()){
+				array_push($permisos_disponibles,$row);
+			}
+		}
+	}
+	else{
+		
+		$strsql="select * from tbpermisos_disponibles where 1=1 order by clavepermisogrupo,accion";
+		$rs=$db->Execute($strsql);
+		if($rs){
+			while($row=$rs->fetchRow()){
+				array_push($permisos_disponibles,$row);
+			}
+		}
+	}
+	$padres=getPadres($grupos);
+	$hijos=getHijos($padres,$grupos);
+	$xml.='<permisos>';
+	$xml.='<permisos_asignados>';
+	getXMLArbol($hijos,$permisos_asignados,$xml);
+	$xml.='</permisos_asignados>';
+	$xml.='<permisos_disponibles>';
+	getXMLArbol($hijos,$permisos_disponibles,$xml);
+	$xml.='</permisos_disponibles>';
+	$xml.='</permisos>';
+	echo $xml;
+	
+	
+}

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>	
+<mx:ViewStack xmlns:mx="http://www.adobe.com/2006/mxml" buttonMode="true">
+
+	<mx:Script>
+		<![CDATA[
+			
+			import actionscripts.Iconos;
+						
+			public static var ON:String="volumeon";
+			public static var OFF:String="volumeoff";
+			
+			
+			public function setState(i_val:String):void{
+				if(i_val==OFF){
+					this.selectedIndex=1;	
+				}else{
+					this.selectedIndex=0;
+				}
+			}
+			
+			
+		]]>
+	</mx:Script>
+
+	<mx:HBox>
+		<mx:Image source="{Iconos.ICON_VOLUME}" />
+	</mx:HBox>
+	<mx:HBox>
+		<mx:Image source="{Iconos.ICON_VOLUME_OFF}" />
+	</mx:HBox>
+</mx:ViewStack>

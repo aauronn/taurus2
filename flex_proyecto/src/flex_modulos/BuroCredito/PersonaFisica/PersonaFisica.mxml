@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		   xmlns:s="library://ns.adobe.com/flex/spark" 
+		   xmlns:mx="library://ns.adobe.com/flex/mx" 
+		   layout="vertical" width="100%" height="100%" xmlns:SuperGrid="components.SuperGrid.*"
+		   creationComplete="init(event)">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.Iconos;
+			
+			import flex_modulos.BuroCredito.PersonaFisica.comps.stPersonaFisica;
+			
+			import mx.controls.Alert;
+			import mx.events.CalendarLayoutChangeEvent;
+			import mx.events.FlexEvent;
+			
+			[Bindable]private var historicostr:String="0";
+			[Bindable]private var dtfFechastr:String="";
+			
+			public function getCatalogoSt():stPersonaFisica{
+				return new stPersonaFisica;
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				//Alert.show("entre");
+				dtfFecha.addEventListener(CalendarLayoutChangeEvent.CHANGE,cambiarHistoricostr);
+				dtfFechastr = dtfFecha.text;
+			}
+			
+			protected function cambiarHistoricostr(evt:CalendarLayoutChangeEvent):void{
+				//	Alert.show("TuPadre");
+				if(dtfFecha.text== dtfFechastr){
+				//	Alert.show("TuPadre Ahora");
+					historicostr="0";
+				}else{
+				//	Alert.show("TuPadre Historico");
+					historicostr="1";
+				}
+			}
+			
+			protected function lbfResposabilidad(item:Object, column:DataGridColumn):String{
+				return "Grupal";
+			}
+			
+			protected function lbfLimiteCredito(item:Object, column:DataGridColumn):String{
+				return FMoneda.format(item.limite_credito);
+			}
+			
+			protected function lbfSaldoActual(item:Object, column:DataGridColumn):String{
+				return FMoneda.format(item.saldo_acumulado);
+			}
+			
+			protected function lbfSaldoVencido(item:Object, column:DataGridColumn):String{
+				return FMoneda.format(item.saldo_acumulado);
+			}
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Persona Fisica" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >		
+		<mx:HBox width="100%">
+			<mx:Label text="Fecha: "/>
+			<mx:DateField id="dtfFecha" selectedDate="{new Date()}" showToday="true" formatString="YYYY-MM-DD"/>
+		</mx:HBox>
+		<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Reporte Persona Fisica" 
+							 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerClientes}" _padreCatalogo="{this}"
+							 isCatalogo="false" _wsBorrar="{ws_borrarClientes}"  _idtabla="clave_cliente" searchOnInit="false"
+							 />		
+	</mx:Panel>
+	
+	<fx:Declarations>
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="clave_cliente" headerText="Numero de Crédito" width="45" />
+			<mx:DataGridColumn dataField="nombre" headerText="Nombre" width="120" />
+			<mx:DataGridColumn dataField="rfc" headerText="RFC" width="80" visible="false"/>	
+			<mx:DataGridColumn dataField="calle_numero" headerText="Calle y Numero" width="150" visible="true"/>
+			<mx:DataGridColumn dataField="colonia" headerText="Colonia" width="50" visible="false"/>
+			<mx:DataGridColumn dataField="cp" headerText="Codigo Postal" width="50" visible="false"/>
+			
+			<mx:DataGridColumn dataField="tipo_credito" headerText="Responsabilidad" width="50" visible="false"/><!--labelFunction="lbfResposabilidad"-->
+			<mx:DataGridColumn dataField="num_docto" headerText="Num Pagos" width="30"/>
+			<mx:DataGridColumn dataField="plazo" headerText="Frecuencia de Pago" width="40" visible="false"/>
+			<mx:DataGridColumn dataField="saldo_acumulado" headerText="Importe" width="200" visible="false"/>
+			<mx:DataGridColumn dataField="fecha_apertura" headerText="Fecha Apertura" width="50" visible="true"/>
+			<mx:DataGridColumn dataField="fecha_ultimo_pago" headerText="Fecha de Ultimo Pago" width="50" visible="true"/>	
+			<mx:DataGridColumn dataField="limite_credito" headerText="Credito Otorgado" width="60" visible="true" /><!--labelFunction="lbfLimiteCredito" textAlign="right"/>-->
+			<mx:DataGridColumn dataField="saldo_acumulado" headerText="Saldo Actual" width="60" visible="true" textAlign="right"/><!--labelFunction="lbfSaldoActual" textAlign="right"/>-->
+			<mx:DataGridColumn dataField="saldo_vencido2" headerText="Saldo Vencido" width="60" visible="true" textAlign="right"/><!--labelFunction="lbfSaldoVencido" textAlign="right"/>-->
+			<mx:DataGridColumn dataField="dias_vencimiento" headerText="Dias Vencidos" width="40" visible="true"/>
+		</fx:Array>	
+		
+		<!--
+
+		Numerro de Crédito
+		RESPONSABILIDAD
+		NUM PAGOS
+		FRECUENCIA DE PAGO
+		IMPORTE
+		FECHA APERTURA
+		FECHA DE ULTIMO PAGO
+		CREDITO OTORGADO
+		SALDO ACTUAL
+		SALDO VENCIDO
+		DIAS VENCIDOS
+
+		-->
+		
+		<mx:HTTPService id="ws_traerClientes" url="{loader.strHostUrl}ws_BuroCredito.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+				<fecha>{dtfFecha.text}</fecha>
+				<tipo_persona>{1}</tipo_persona><!--EL NUMERO 1 SIGNIFICA PERSONA MORAL EN LA BASE DE DATOS -->
+				<historico>{historicostr}</historico>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarClientes" url="{loader.strHostUrl}ws_BuroCredito.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:CurrencyFormatter id="FMoneda" precision="2" currencySymbol="$"/>
+	</fx:Declarations>
+</mx:Module>

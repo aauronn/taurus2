@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mediarenderer:MediaRenderer 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:mediawidgetcontrols="com.adobesamples.mediawidget.view.controls.*"
+	xmlns:mediawidgetpanel="com.adobesamples.mediawidget.view.panel.*"
+	xmlns:mediarenderer="com.adobesamples.mediawidget.view.mediarenderers.*"
+	xmlns:swc="com.flexdotorg.controls.*"
+	backgroundColor="#000000"
+	>
+	
+	<mx:Fade id="fadeup" alphaFrom="0" alphaTo="1" duration="1000" />
+	
+	<mx:Canvas width="100%" height="100%">
+		<mx:HBox width="100%" height="100%" verticalAlign="middle" horizontalAlign="center">
+			<swc:LoadingIcon visible="{img.bytesLoaded!=img.bytesTotal}" />
+		</mx:HBox>
+		<mx:Image id="img" 
+			width="100%" height="100%" 
+			source="{mediaitem.enclosure}" 
+			horizontalAlign="center" verticalAlign="middle"
+			completeEffect="{fadeup}" 
+			/>
+	</mx:Canvas>
+	
+</mediarenderer:MediaRenderer>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				layout="vertical" height="100%"
+				showCloseButton="true" close="cerrarVentana()" xmlns:SuperGrid="components.SuperGrid.*">
+	<fx:Script>
+		<![CDATA[
+			import mx.events.CloseEvent;
+			import mx.managers.PopUpManager;
+			
+			[Bindable] public var _padre:*;
+			[Bindable] public var item:Object = new Object();
+			
+			protected function cerrarVentana():void
+			{
+				// TODO Auto-generated method stub
+				PopUpManager.removePopUp(this);
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:VBox width="100%" id="vboxContenedor">
+		<mx:HBox id="contenedor" width="100%">
+			<!-- GRID PAGINADO -->	
+			<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Catálogo de Clientes" 
+								 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerClientes}" 
+								 isCatalogo="false" _wsBorrar="{ws_borrarClientes}"  _idtabla="clave_cliente"
+								 
+								 />
+			<mx:List width="300" height="{gridResultados.height}"> 
+				<fx:Object label="AL" data="Montgomery"/>
+				<fx:Object label="AK" data="Juneau"/>
+				<fx:Object label="AR" data="Little Rock"/>
+			</mx:List>
+		</mx:HBox>
+		<mx:HBox width="100%" id="hboxResultado">
+			<mx:Label id="lblTotal" text="$ 123123"/>
+		</mx:HBox>
+	</mx:VBox>
+			
+	
+	<fx:Declarations>
+		
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="clave_cliente" headerText="Clave Cliente" width="100" />
+			<mx:DataGridColumn dataField="nombre" headerText="Nombre" width="400" />	
+			<!--<mx:DataGridColumn dataField="direccion_completa" headerText="Direccion" width="400" />
+			<mx:DataGridColumn dataField="nombre_zona" headerText="Nombre de la Zona" width="200" />-->		
+		</fx:Array>	
+		
+		<mx:HTTPService id="ws_traerClientes" url="{loader.strHostUrl}ws_clientes2.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarClientes" url="{loader.strHostUrl}ws_clientes2.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+	</fx:Declarations>
+</mx:TitleWindow>

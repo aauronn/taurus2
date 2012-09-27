@@ -1,0 +1,543 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" minWidth="955" minHeight="600" xmlns:components="components.*" 
+			   creationComplete="{init()}" addedToStage="{initStage()}">
+	
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.Base64;
+			import actionscripts.DataProviders;
+			import actionscripts.Iconos;
+			import actionscripts.Utils;
+			
+			import mx.collections.ArrayCollection;
+			import mx.containers.HBox;
+			import mx.containers.TitleWindow;
+			import mx.controls.Alert;
+			import mx.controls.Button;
+			import mx.controls.CheckBox;
+			import mx.controls.Label;
+			import mx.controls.RadioButton;
+			import mx.controls.RadioButtonGroup;
+			import mx.managers.HistoryManager;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			[Bindable]private var ServicesHandler:HTTPService;
+			private var hist:HistoryManager; 
+			
+			// Sesion Usuario
+			[Bindable] private var arrSesion:ArrayCollection;
+			[Bindable] private var arrPermisosAsignados:ArrayCollection;	
+			[Bindable] public static var id:int = 0;
+			[Bindable] public static var acceso:int = 0;
+			[Bindable] public static var empresa:String = "";
+			[Bindable] public static var email:String = "";
+			[Bindable] public static var telefonos:String = "";
+			[Bindable] public static var clave_cliente:String = "";
+			[Bindable] public static var clave_vendedor:String = "";
+			[Bindable] public static var nombre:String = "NOMBRE_DEL_USUARIO";
+			[Bindable] public static var apaterno:String = "NOMBRE_DEL_USUARIO";
+			[Bindable] public static var amaterno:String = "NOMBRE_DEL_USUARIO";
+			[Bindable] public static var usuario:String = "USUARIO";
+			[Bindable] public static var idtipousuario:String = "";
+			
+			[Bindable] public static var objetoUsuario:Object = new Object();
+			// Timer que ayuda a las sesiones de firefox 
+			private var timer:Timer;
+			
+			// Sesion Externa Usuario
+			[Bindable] public static var loginExterno:Boolean = false;
+			[Bindable] private var strUsernameExterno:String;
+			[Bindable] private var strPasswordExterno:String;
+			
+			// Sistema
+			
+			[Bindable] public static var strHostUrl:String = "";
+			[Bindable] public static var strNombreSistema:String = "";
+			[Bindable] public static var strRevision:String = "0";
+			[Bindable] public static var strSSID:String = "";
+			[Bindable] public static var archivosUploadUrl:String = "";
+			[Bindable] public static var tempArchivosUrl:String = "";
+			[Bindable] public static var documentosUrl:String = "";
+			[Bindable] public static var strFileSize:String = "5M";
+			[Bindable] public static var strRtmpAddress:String = "";
+			
+			
+			[Bindable] public var strModulo:String;
+			
+			//Llaves de sistemas
+			public static const RC4_KEY:String = "89ac8c9bf9ac580ca2a806d14f3cd530f8d092d95eafa206cf4d26097d10d62888ad42ae1d23fc7c4a0750cf49309d455214b397a1dd3ef140f124ca71f3ee41"; //sha-512 (hex) de de csweb_atn_ciudadana
+			
+			
+			
+			// ENCUESTAS
+			[Bindable] public static var arrEncuestas:ArrayCollection=new ArrayCollection();
+			[Bindable] public static var pendientesPorEvaluar:Array = new Array();
+			[Bindable] public static var idencuestaPendienteLoad:int = 0;
+			[Bindable] public static var urlArchivosUpload:String = "archivos_upload/";
+			
+			
+			[Bindable] public var objSession:Object;			
+			[Bindable] public var strImgSize:String;
+			[Bindable] public static var imagen_url:String;
+			[Bindable] public static var debug:Boolean = false; //TRUE MUESTRA AVISOS DETALLADOS EN MSGS DE ERROR 
+			[Bindable] public static var dp:DataProviders = new DataProviders();
+			
+			
+			
+			[Bindable] public static var arrMensajes:ArrayCollection=new ArrayCollection();
+			
+			private var kkeys:Array=new Array();
+			
+			
+			
+			public function init():void{
+				//dp._padreLoader = this;
+				dp._padreLoader = this;
+				
+				if(this.parameters.strHostUrl != null && this.parameters.strHostUrl != ""){
+					strHostUrl     = getParameter("strHostUrl");
+					strNombreSistema = getParameter("strNombreSistema");
+					//strRtmpAddress = getParameter("strRtmpAddress");
+					archivosUploadUrl = getParameter("archivosUploadUrl");
+					tempArchivosUrl = getParameter("tempArchivosUrl");
+					documentosUrl = getParameter("documentosUrl");
+					//Alert.show("Entre al IF-----"+strHostUrl);
+				}else{
+					strHostUrl     = 'http://localhost/taurus2/';
+					strNombreSistema = 'TAURUS - Administrador de Proyectos';
+					//strRtmpAddress = "rtmp://172.16.0.210/convertirDocs";
+					archivosUploadUrl = "http://localhost/taurus2/archivos_upload/";
+					tempArchivosUrl = "http://localhost/taurus2/temp_archivos/";
+					documentosUrl = "http://localhost/taurus2/documentos/";
+					//Alert.show("Entre al ELSE");
+					trace("strHostUrl Default.");
+					debug = true; //OBLIGAR DEBUG SI SE CORRE DESDE FLEX
+				}	
+				
+				
+				//Parametros cifrados con RC4 (Para creación de sesiones ecternas al cargar de módulos individuales)
+				for(var i:String in this.parameters){
+					if(Utils.decrypt(i, RC4_KEY) == "atnc_username"){
+						strUsernameExterno = Utils.decrypt(this.parameters[i], RC4_KEY);
+						loader.loginExterno = true;
+					}
+					if(Utils.decrypt(i, RC4_KEY) == "atnc_password"){
+						strPasswordExterno = Utils.decrypt(this.parameters[i], RC4_KEY);
+					}
+				}
+				
+				/*Alert.show(
+				"siee_username: " + Utils.encrypt("siee_username", RC4_KEY) + "\n" +
+				"siee_password: " + Utils.encrypt("siee_password", RC4_KEY) + "\n" +
+				"usr_dgest: " + Utils.encrypt("usr_dgest", RC4_KEY) + "\n" +
+				"pwd_dgest: " + Utils.encrypt("pwd_dgest", RC4_KEY)
+				);
+				return;*/
+				
+				if(this.parameters.modulo != null && this.parameters.modulo != ""){
+					strModulo = this.parameters.modulo;
+				}
+				else{
+					//strModulo = Base64.encode("./flex_modulos/Tests.swf"); //Avisos en modo postit-test
+					strModulo = Base64.encode("./flex_modulos/Principal.swf");
+					trace("strModulo Default.");		
+				}
+				
+				if(this.parameters.revision != null && this.parameters.revision != ""){
+					strRevision = this.parameters.revision;
+				}
+				
+				if(this.parameters.maxFileSize != null && this.parameters.maxFileSize != ""){
+					strFileSize = this.parameters.maxFileSize;
+				}
+				else{
+					strFileSize = "20M";
+					trace("maxFileSize Default.");
+				}
+				
+				if(this.parameters.SSID != null && this.parameters.SSID != ""){
+					strSSID = this.parameters.SSID;
+				}
+				else{
+					strSSID = "no";
+					trace("SSID Default.");
+				}
+				
+				trace(strHostUrl);
+				trace("["+strModulo+"]:"+Base64.decode(strModulo));
+				
+				strImgSize = '2M';
+				imagen_url = strHostUrl+"thumbImage.php?image=";
+				
+				//loadUnloadModule(Base64.decode(strModulo));//remover esto cuando se revisen sesiones.
+				
+				if(!loader.loginExterno){ //SI ES LOGIN NORMAL DESDE LOGIN.PHP
+					ws_session.send(); //Se llamara en el login o en donde se necesite tomar las variables de sesion de php
+				}
+				else{//SI ES LOGIN EXTERNO (MODULOS INDEPENDIENTES)
+					ws_login_externo.send();
+				}
+			}
+			
+			/****** getParatemers *******/
+			public function getParameter(parametro:String):String{
+				if(this.parameters[parametro] && String(this.parameters[parametro])!=""){
+					return this.parameters[parametro];
+				}
+				
+				loader.msgAviso("Parametro vacío: ["+parametro+"]",3);
+				return "";	
+			}
+			
+			public function getParameterInt(parametro:String):int{
+				if(this.parameters[parametro] && String(this.parameters[parametro])!=""){
+					return this.parameters[parametro];
+				}
+				
+				loader.msgAviso("Parametro vacío: ["+parametro+"]",3);
+				return 0;	
+			}
+			/****** getParatemers *******/
+			
+			
+			
+			
+			public function initApp():void{
+				//systemManager.stage.addEventListener(KeyboardEvent.KEY_DOWN, konamiCode);				
+			}
+			
+			private function initStage():void{
+				this.addEventListener(KeyboardEvent.KEY_DOWN, konamiCode);	
+			}
+			
+			//Konami code para habilitar/deshabilitar el debug, el cual te permite ver msgs mas detallados
+			private function konamiCode(evt:KeyboardEvent):void{			    
+				var konami:String = "38,38,40,40,37,39,37,39,66,65"; //uuddlrlrba
+				if((evt.keyCode>=37 && evt.keyCode<=40) || evt.keyCode==65 || evt.keyCode==66)
+				{
+					kkeys.push(evt.keyCode);
+					if ( kkeys.toString().indexOf( konami ) >= 0 )
+					{
+						kkeys=new Array();
+						
+						//Ventana Debug para poner el nivel de encriptacion y si se desea ver msg mas detallados
+						var debugWindow:TitleWindow;
+						debugWindow = new TitleWindow();
+						debugWindow.title = "DEBUG";
+						debugWindow.width= 400;
+						debugWindow.height= 250;
+						
+						
+						var contPrincipal:HBox = new HBox;
+						contPrincipal.percentWidth = 100;
+						contPrincipal.setStyle("horizontalAlign", "center");
+						
+						var contEncryptionLevels:VBox = new VBox;
+						var labelEnc:Label = new Label;
+						labelEnc.text = "Niveles de Encriptación";
+						labelEnc.setStyle("fontWeight", "bold");
+						var chkLevel0:CheckBox = new CheckBox;
+						chkLevel0.label = "Nivel 0";
+						chkLevel0.name = "valor0";
+						var chkLevel1:CheckBox = new CheckBox;
+						chkLevel1.label = "Nivel 1";
+						chkLevel1.name = "valor1";
+						var chkLevel2:CheckBox = new CheckBox;
+						chkLevel2.label = "Nivel 2";
+						chkLevel2.name = "valor2";
+						var chkLevel3:CheckBox = new CheckBox;
+						chkLevel3.label = "Nivel 3";
+						chkLevel3.name = "valor4";
+						
+						contEncryptionLevels.addChild(labelEnc);
+						contEncryptionLevels.addChild(chkLevel0);
+						contEncryptionLevels.addChild(chkLevel1);
+						contEncryptionLevels.addChild(chkLevel2);
+						contEncryptionLevels.addChild(chkLevel3);
+						
+						var contMsgDetallados:VBox = new VBox;
+						var labelMsg:Label = new Label;
+						labelMsg.text = "Mensajes Detallados";
+						labelMsg.setStyle("fontWeight", "bold");
+						
+						var rbtnGrpMsg:RadioButtonGroup = new RadioButtonGroup;
+						
+						var rbtnMsg1:RadioButton = new RadioButton;
+						rbtnMsg1.label = "Si";
+						rbtnMsg1.value = true;
+						rbtnMsg1.group = rbtnGrpMsg;
+						rbtnMsg1.selected = debug;
+						var rbtnMsg2:RadioButton = new RadioButton;
+						rbtnMsg2.label = "No";
+						rbtnMsg2.value = false;
+						rbtnMsg2.selected = !debug;
+						rbtnMsg2.group = rbtnGrpMsg
+						
+						contMsgDetallados.addChild(labelMsg);
+						contMsgDetallados.addChild(rbtnMsg1);
+						contMsgDetallados.addChild(rbtnMsg2);
+						
+						var contDispErrors:VBox = new VBox;
+						var labelDispErrors:Label = new Label;
+						labelDispErrors.text = "DisplayErrors";
+						labelDispErrors.setStyle("fontWeight", "bold");
+						
+						var rbtnGrpDspErrors:RadioButtonGroup = new RadioButtonGroup;
+						
+						var rbtnDspErr1:RadioButton = new RadioButton;
+						rbtnDspErr1.label = "Si";
+						rbtnDspErr1.value = 1;
+						rbtnDspErr1.group = rbtnGrpDspErrors;
+						var rbtnDspErr2:RadioButton = new RadioButton;
+						rbtnDspErr2.label = "No";
+						rbtnDspErr2.value = 0;
+						rbtnDspErr2.selected = true;
+						rbtnDspErr2.group = rbtnGrpDspErrors
+						
+						contDispErrors.addChild(labelDispErrors);
+						contDispErrors.addChild(rbtnDspErr1);
+						contDispErrors.addChild(rbtnDspErr2);
+						
+						var btnAceptar:Button = new Button;
+						btnAceptar.label = "Aceptar";
+						btnAceptar.setStyle("icon", Iconos.MESSAGEBOX_OK16);
+						btnAceptar.addEventListener(MouseEvent.CLICK,function(event:MouseEvent):void{
+							var cont:int = 0;
+							
+							if(rbtnGrpMsg.selection){
+								debug = rbtnGrpMsg.selection.value;
+							} 
+							
+							for(var i:int = 0; i < contEncryptionLevels.getChildren().length; i++){
+								if(contEncryptionLevels.getChildren()[i] is CheckBox){
+									var chkTmp:CheckBox = contEncryptionLevels.getChildren()[i];
+									if(chkTmp.selected){
+										cont |= int(chkTmp.name.substring(5));
+									}
+								}
+							}
+							
+							var dspErr:String = "0";
+							if(rbtnGrpDspErrors.selection){
+								dspErr = String(rbtnGrpDspErrors.selection.value);
+							} 
+							
+							//HTTPService encargado de crear la variable de sesion que cambia el nivel de encriptacion
+							var ws_changeEncLevel:HTTPService  = new HTTPService();
+							ws_changeEncLevel.resultFormat='text';
+							ws_changeEncLevel.method='POST';
+							ws_changeEncLevel.url = loader.strHostUrl + "include/entorno.inc.php";
+							ws_changeEncLevel.request = {opcion:"DEBUG_LEVEL", level:cont, display_errors:dspErr} ;
+							ws_changeEncLevel.requestTimeout=30;
+							ws_changeEncLevel.addEventListener(ResultEvent.RESULT,function(event:ResultEvent):void{
+								msgAviso(event.result.toString());
+							});
+							ws_changeEncLevel.addEventListener(FaultEvent.FAULT,function(event:FaultEvent):void{
+								msgAviso(event.message.toString(),3);
+							});
+							ws_changeEncLevel.send(); 
+							PopUpManager.removePopUp(debugWindow);
+							
+						});
+						
+						var btnCancelar:Button = new Button();
+						btnCancelar.label = "Cancelar";
+						btnCancelar.setStyle("icon", Iconos.MESSAGEBOX_ERROR16);
+						btnCancelar.addEventListener(MouseEvent.CLICK,function(event:MouseEvent):void{
+							PopUpManager.removePopUp(debugWindow);
+						});
+						
+						var contBtns:HBox = new HBox;
+						contBtns.percentWidth = 100;
+						contBtns.percentHeight = 100;
+						contBtns.setStyle("horizontalAlign", "center");
+						contBtns.setStyle("verticalAlign", "bottom");
+						contBtns.addChild(btnAceptar);
+						contBtns.addChild(btnCancelar);
+						
+						contPrincipal.addChild(contEncryptionLevels);
+						contPrincipal.addChild(contMsgDetallados);
+						contPrincipal.addChild(contDispErrors);
+						
+						debugWindow.addChild(contPrincipal);
+						debugWindow.addChild(contBtns);
+						
+						PopUpManager.addPopUp(debugWindow, this, true);
+						PopUpManager.centerPopUp(debugWindow);
+					}
+				}
+				else{
+					kkeys = new Array();
+				}
+			}
+			
+			public function loadUnloadModule(modulo:String):void{
+				
+				mx.managers.ToolTipManager.toolTipClass = mx.controls.ToolTip;
+				
+				if(modulo != null && modulo!=""){
+					mod.url = modulo.split("?").length>1?modulo+"&revision="+"1":modulo+"?revision="+"1";
+				}
+				else{
+					mod.unloadModule();
+					mod.url = null; 
+				}				
+			}
+			
+			private function resultSession(event:ResultEvent):void {
+				// Sesion
+				arrSesion = Utils.getRowsFromObj(event.result.sesiones,"sesion");
+				arrPermisosAsignados = Utils.getRowsFromObj(event.result.sesiones,"permiso_a");
+				//arrEncuestas = Utils.getRowsFromObj(event.result.sesiones,"encuesta");
+				//arrMensajes  = Utils.getRowsFromObj(event.result.sesiones,"mensaje");
+				
+				timer = new Timer(100);
+				timer.addEventListener(TimerEvent.TIMER, checkSession);
+				timer.start();	
+			}
+			
+			private function resultLogin(event:ResultEvent):void {
+				if(event.result == "ok"){
+					ws_session.send();
+				}
+				else{
+					Alert.show("Error al iniciar sesión");
+				}
+			}
+			
+			public function checkSession(evt:TimerEvent):void {			
+				if(arrSesion.length > 0){
+					id = arrSesion[0].id;
+					acceso = arrSesion[0].acceso;
+					empresa = arrSesion[0].empresa;
+					email = arrSesion[0].email;
+					telefonos = arrSesion[0].telefonos;
+					clave_cliente = arrSesion[0].clave_cliente;
+					clave_vendedor = arrSesion[0].clave_vendedor;
+					nombre = arrSesion[0].nombre;
+					usuario = arrSesion[0].usuario;
+					apaterno = arrSesion[0].apaterno;
+					amaterno = arrSesion[0].amaterno;
+					idtipousuario = arrSesion[0].idtipousuario;
+					
+					
+					objetoUsuario.id = arrSesion[0].id;
+					objetoUsuario.acceso = arrSesion[0].acceso;
+					objetoUsuario.empresa = arrSesion[0].empresa;
+					objetoUsuario.email = arrSesion[0].email;
+					objetoUsuario.telefonos = arrSesion[0].telefonos;
+					objetoUsuario.clave_cliente = arrSesion[0].clave_cliente;
+					objetoUsuario.clave_vendedor = arrSesion[0].clave_vendedor;
+					objetoUsuario.nombre = arrSesion[0].nombre;
+					objetoUsuario.usuario = arrSesion[0].usuario;
+					objetoUsuario.apaterno = arrSesion[0].apaterno;
+					objetoUsuario.amaterno = arrSesion[0].amaterno;
+					objetoUsuario.idtipousuario = arrSesion[0].idtipousuario;
+					objetoUsuario.nombreCompleto = arrSesion[0].nombre + " " + arrSesion[0].apaterno + " " +arrSesion[0].amaterno;
+					
+					// Permisos
+					//Descomentar esto para tener los permisos de nuevo
+					loader.dp.arrPermisos = new Dictionary();
+					if(arrPermisosAsignados.length == 1 && String(arrPermisosAsignados.getItemAt(0).id) == "-1"){
+						loader.msgAviso("Usted no tiene permisos asignados", 3);	
+						
+						setTimeout(function delay():void{
+							Utils.goToUrl(strHostUrl+'cerrarsesion.php');
+						}, 3000);
+						
+					}else{
+						for(var j:int=0; j<arrPermisosAsignados.length; j++){
+							loader.dp.arrPermisos[String(arrPermisosAsignados[j].id)] = "1";
+						}
+					}
+					
+					loadUnloadModule(Base64.decode(strModulo));
+				}
+				else{
+					logout();
+				}
+				timer.stop();
+			}
+			
+			public static function msgAviso(mensaje:String,tipoIcono:Number=1,e:Error=null):void{					
+				var icono:Class;
+				if(tipoIcono==1) icono=Iconos.MESSAGEBOX_OK16;
+				else if(tipoIcono==2) icono=Iconos.MESSAGEBOX_WARNING16;
+				else if(tipoIcono==3) icono=Iconos.MESSAGEBOX_ERROR16;
+				else icono=Iconos.MESSAGEBOX_INFO16;
+				
+				
+				if(e){					
+					if(debug){
+						mensaje+="\n\n"+e.message;
+					}
+					mensaje+="\n\nConsulte al Administrador";
+				}
+				
+				Alert.show(mensaje,"Mensaje",4,null,null,icono);
+			}
+			
+			public static function msgReintentar(mensaje:String,fnReintentar:Function,msgReintentar:String="¿Desea volver a intentarlo?",tituloVentana:String="Aviso", yesLabel:String="SI", noLabel:String="NO"):void{
+				mensaje = (msgReintentar!="") ? (mensaje+"\n\n"+msgReintentar) : mensaje;				
+				Alert.yesLabel = yesLabel;
+				Alert.noLabel  = noLabel;
+				Alert.show(mensaje,tituloVentana,Alert.YES|Alert.NO,null,fnReintentar,Iconos.MESSAGEBOX_QUESTION,Alert.OK);
+				Alert.yesLabel = "Aceptar";
+				Alert.noLabel = "Cancelar";
+				//this.parentApplication as Sprite
+			}
+			
+			private function ventanaResize():void{
+				this.validateNow();
+			}
+			
+			public static function logout():void{
+				Utils.goToUrl(loader.strHostUrl+'cerrarsesion.php'); 
+			}
+			
+			public function faultHandler(evento:FaultEvent):void{
+				this.enabled=true;
+				ServicesHandler=new HTTPService;
+				ServicesHandler=evento.target as HTTPService;
+				//ServicesHandler.request=evento.token.message.body;
+				
+				loader.msgReintentar("Ocurrió un error con la conexión.",errorHandler);	        	
+			}
+			
+			private function errorHandler(evento:Object):void{
+				if(evento.detail == Alert.YES) {
+					//Utils.checarSesion(ServicesHandler);
+					ServicesHandler.send();	
+				}
+				if(evento.detail == Alert.NO) {
+					ServicesHandler=new HTTPService();
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:VBox width="100%" height="100%" horizontalAlign="center" id="vboxBody" backgroundColor="#FFFFFF" verticalAlign="middle" paddingBottom="2" paddingLeft="2" paddingRight="2" paddingTop="2">
+		<components:CustomModuleLoader id="mod" height="100%" width="100%" backgroundColor="#FFFFFF"/>
+	</mx:VBox>
+	
+	
+	<fx:Declarations>
+		<mx:HTTPService id="ws_session" showBusyCursor="true" method="POST" resultFormat="object" requestTimeout="30" result="resultSession(event)" fault="Alert.show(event.fault.toString())" url="{strHostUrl+'login.php?SSID='+strSSID}">
+			<mx:request>
+				<opcion>SESSION</opcion>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_login_externo" showBusyCursor="true" method="POST" resultFormat="object" requestTimeout="30" result="{resultLogin(event)}" fault="Alert.show(event.fault.toString())" url="{strHostUrl+'login.php'}">
+			<mx:request>
+				<opcion>LOGIN_EXTERNO</opcion>
+				<nombreusuario>{strUsernameExterno}</nombreusuario>
+				<password>{strPasswordExterno}</password>
+			</mx:request>
+		</mx:HTTPService>
+	</fx:Declarations>
+</s:Application>

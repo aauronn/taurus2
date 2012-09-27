@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" xmlns:SuperGrid="components.SuperGrid.*">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[			
+			import flex_modulos.catalogos.Sbu.comps.stsbu;
+			
+			public function getCatalogoSt():stsbu{
+				return new stsbu;
+			}
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Catálogo Tipo Usuario" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >		
+		<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Catálogo Tipo Usuario" 
+							 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerTipoUsuarios}" _padreCatalogo="{this}"
+							 isCatalogo="true" _wsBorrar="{ws_borrarTipoUsuarios}"  _idtabla="idsbu" />		
+	</mx:Panel>
+	
+	<fx:Declarations>
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="clave_sbu" headerText="Titulo" width="80" />
+			<mx:DataGridColumn dataField="descripcion_sbu" headerText="Descripcción" width="300" />
+			<mx:DataGridColumn dataField="nombre_familia" headerText="Familia" width="80" />
+		</fx:Array>
+		
+		<!--HTTP SERVICES-->
+		<mx:HTTPService id="ws_traerTipoUsuarios" url="{loader.strHostUrl}ws_sbu.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarTipoUsuarios" url="{loader.strHostUrl}ws_sbu.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+			</mx:request>
+		</mx:HTTPService>
+	</fx:Declarations>
+</s:Module>

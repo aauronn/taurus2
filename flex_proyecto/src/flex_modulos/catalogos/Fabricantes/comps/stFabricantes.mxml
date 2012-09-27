@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%"
+		 creationComplete="init(event)">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Utils;
+			
+			import com.hurlant.crypto.symmetric.CBCMode;
+			
+			import components.SuperGrid.SuperGrid;
+			import components.SuperGrid.contenedorSt;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.ObjectProxy;
+			import mx.utils.StringUtil;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padreContenedor:contenedorSt;
+			[Bindable] public var _padreSuperGrid:SuperGrid;
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+					_padreContenedor.allowMaximize=false;
+					_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					
+					
+					//ws_traerContactos.send();
+					loader.dp.hacerWS(['especialistas']);
+					if(strAccion=="NUEVO"){
+						
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						txtClaveFabricante.text 		= item.clave_fabricante;
+						txtNombreFabricante.text 	= item.nombre_fabricante;
+						// Quitamos Loader
+						//loader.dp.removeLoader();//Quitar esto cuando se haga un WS de un Data Provider
+					}	
+				}catch(ex:Error){
+					loader.msgAviso("stciudades->init() ",3,ex);
+				}
+			}
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//arrFamilias.source = Utils.clone(loader.dp.arrFamilias.source);		
+					
+					// Familias
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrEspecialistas),new ObjectProxy({idusuario:'',especialista:'Sin Seleccionar'}));
+					arr1.refresh();
+					cbxEspecialista.dataProvider = arr1;	
+					cbxEspecialista.labelField = "especialista";
+					
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						cambiaRegistro();
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			public function cerrar():void{
+				_padreContenedor.cerrar();
+			}
+			
+			public function cambiaRegistro():void{
+				huboCambios = false;
+				// Buscar Especialista
+				DataProviders.selectedIndexCombo(cbxEspecialista,'idusuario',item.idusuario);
+				
+				//ws_traerContactos.send();
+				
+				// Buscar Localidad
+				//DataProviders.selectedIndexCombo(cbxLocalidad,'clavelocalidad',item.clavelocalidad);
+				huboCambios=false;
+				
+			}
+			
+			/********** VALIDA Y GUARDA **********/
+			public function validar():void{
+				var errores:String="";				
+				//if(StringUtil.trim(txtClaveCiudad.text)==""){      errores+="- Ingrese la clave.\n"; }
+				//if(cbxEntidadFederativa.selectedIndex<=0){      errores+="- Ingrese el Estado.\n"; }
+				//if(cbxLocalidad.selectedIndex<0&&cbxLocalidad.selectedItem.nombrelocalidad.toString()!='Sin Seleccionar'){      errores+="- Ingrese el municipio.\n"; }
+				//if(StringUtil.trim(txtNombreCiudad.text)==""){ errores+="- Ingrese el nombre de la Localidad.\n"; }
+				//if(StringUtil.trim(txtDirectorlocalidad.text)==""){ errores+="- Ingrese el nombre del director de Ciudad.\n"; }
+				
+				if(errores==""){
+					guardar();					
+				}else{	
+					loader.msgAviso(errores,2);
+				}
+				
+			}
+			
+			private function guardar():void{
+				if(strAccion=="NUEVO" || strAccion=="COPIAR")  loader.dp.cargaService(ws_nuevo_registro);
+				if(strAccion=="EDITAR") loader.dp.cargaService(ws_edita_registro);
+				
+			}
+			/********** VALIDA Y GUARDA **********/
+			
+			
+			/******** RESULT HANDLERS *********/
+			public function resultGuardar(event:ResultEvent):void{
+				this.parentApplication.enabled=true;
+				var tipo:String    = (strAccion=="NUEVO" || strAccion=="COPIAR") ? "guardada"        : "editada";
+				var ws:HTTPService = (strAccion=="NUEVO" || strAccion=="COPIAR") ? ws_nuevo_registro : ws_edita_registro;
+				
+				switch(StringUtil.trim(event.result.toString())){
+					case "ok":
+						huboCambios = false;
+						loader.msgAviso("El Fabricante fue "+tipo+" correctamente.");
+						//loader.dp.hacerWS(['ciudades'],true);
+						_padreSuperGrid.buscaRespuestas();
+						cerrar();						
+						break;
+					
+					case "yaexiste":
+						loader.msgAviso("El Fabricante ya existe",2);
+						break;
+					
+					default:
+						if(loader.debug){
+							loader.msgAviso(StringUtil.trim(event.result.toString()),3);	
+						}else{
+							loader.dp.reintentarHttpService("Ocurrió un problema al realizar la operación",ws,event);
+						}
+				}
+				
+			}
+			/******** RESULT HANDLERS *********/
+			
+			
+		]]>
+	</fx:Script>
+	
+	
+	<mx:Form width="100%" id="fSbu">
+		<mx:FormItem label="Clave Fabricante:" width="100%">
+			<mx:TextInput id="txtClaveFabricante" width="100%" 
+						  restrict="{Utils.restringir('LETRAS,NUMEROS,GUIONES')}"/>
+		</mx:FormItem>
+		<mx:FormItem label="Nombre Fabricante:" width="100%">
+			<mx:TextInput id="txtNombreFabricante" width="100%" 
+						  restrict="{Utils.restringir('LETRAS,NUMEROS,GUIONES')}"/>
+		</mx:FormItem>
+		<mx:FormItem label="Especialista:" width="100%">
+			<mx:ComboBox id="cbxEspecialista" width="100%" />
+		</mx:FormItem>
+	</mx:Form>
+	
+	<fx:Declarations>
+		<mx:HTTPService showBusyCursor="true" id="ws_nuevo_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_fabricantes.php">
+			<mx:request>
+				<opcion>NUEVO_REGISTRO</opcion>			
+				<clave_fabricante>{txtClaveFabricante.text}</clave_fabricante>
+				<idusuario>{cbxEspecialista.selectedItem.idusuario}</idusuario>
+				<nombre_fabricante>{txtNombreFabricante.text}</nombre_fabricante>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_edita_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_fabricantes.php">
+			<mx:request>
+				<opcion>EDITAR_REGISTRO</opcion>
+				<idfabricante>{item.idfabricante}</idfabricante>
+				<clave_fabricante>{txtClaveFabricante.text}</clave_fabricante>
+				<idusuario>{cbxEspecialista.selectedItem.idusuario}</idusuario>
+				<nombre_fabricante>{txtNombreFabricante.text}</nombre_fabricante>
+			</mx:request>
+		</mx:HTTPService>
+	</fx:Declarations>
+</mx:VBox>

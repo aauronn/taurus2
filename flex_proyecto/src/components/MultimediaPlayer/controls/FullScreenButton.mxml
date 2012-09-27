@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>	
+<mx:ViewStack xmlns:mx="http://www.adobe.com/2006/mxml" buttonMode="true">
+
+	<mx:Script>
+		<![CDATA[
+		
+			import actionscripts.Iconos;
+			
+			public static var FULLSCREEN:String="fullscreen";
+			public static var NORMALSCREEN:String="normalscreen";
+			
+			
+			
+			public function setState(i_val:String):void{
+				if(i_val==FULLSCREEN){
+					this.selectedIndex=1;	
+				}else{
+					this.selectedIndex=0;
+				}
+			}
+			
+			public function getState():String{
+				if(this.selectedIndex==1){
+					return FULLSCREEN;	
+				}
+				else{
+					return NORMALSCREEN;
+				}
+			}	
+			
+			
+		]]>
+	</mx:Script>
+
+	<mx:HBox>
+		<mx:Image source="{Iconos.ICON_ENTER_FS}" />
+	</mx:HBox>
+	<mx:HBox>
+		<mx:Image source="{Iconos.ICON_QUIT_FS}" />
+	</mx:HBox>
+</mx:ViewStack>

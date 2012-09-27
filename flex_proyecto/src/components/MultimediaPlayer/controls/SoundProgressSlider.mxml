@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas 
+	xmlns:mx="http://www.adobe.com/2006/mxml" 
+	 horizontalScrollPolicy="off"
+	 verticalScrollPolicy="off"
+	>
+	
+	
+	<mx:Metadata>
+		[Event(name="seekchange", type="events.MediaProgressSeekEvent")]
+	</mx:Metadata>
+
+	<mx:Script>
+		<![CDATA[
+			import components.MultimediaPlayer.events.completeEvent;
+			import components.MultimediaPlayer.events.MediaProgressSeekEvent;		
+			import mx.controls.Alert;
+			import actionscripts.Iconos;
+			import mx.effects.easing.*;
+			
+			private var __loadpercent:uint=0;
+			private var __position:Number=0;
+			private var __duration:Number=0;
+			private var __isdragging:Boolean=false;
+			
+			
+			[Bindable]
+			public function set loadpercent(i_val:uint):void{
+				__loadpercent=i_val;
+				handleLoadPercent();
+			}
+			
+			public function get loadpercent():uint{
+				return __loadpercent;
+			}
+			
+			private function handleLoadPercent():void{
+				fill_box.percentWidth=loadpercent
+				//trace("PROGRESS SLIDER: handleLoadPercent: loadpercent: "+loadpercent+" inc: "+inc+" newWidth: "+newWidth+" fill_box.width: "+fill_box.width)
+			}
+			
+			
+			[Bindable]
+			public function set position(i_val:Number):void{
+				__position=i_val;
+				updateSliderSettings();
+			}
+			
+			public function get position():Number{
+				return __position;
+			}
+			
+			
+			[Bindable]
+			public function set duration(i_val:Number):void{
+				__duration=i_val;
+				//trace ("Duracion: "+__duration);
+				updateSliderSettings();
+				enableNibDragging();
+			}
+			
+			public function get duration():Number{
+				return __duration;
+			}
+			
+			
+			
+			public function updateSliderSettings():void{
+				if(!__isdragging){
+					
+					var maxwidth:Number=width-dragging_nib.width;
+					var positionpercent:Number=((position/duration)*loadpercent)/100;
+					var gotoposition:Number=Math.round(maxwidth*positionpercent);
+					if(positionpercent>=1){
+						dispatchEvent(new completeEvent(new Object()));
+					}
+					//trace("MW: "+maxwidth);
+					//trace("position%: "+positionpercent+" __position "+__position+" gotoPOS: "+gotoposition);
+					dragging_nib.x=gotoposition;
+				}
+				
+			}
+			
+			
+			private function handleNibMouseDown(event:Event=null):void{
+				if(duration>0){
+					__isdragging=true;
+					var maxwidth:Number=width-dragging_nib.width;
+					dragging_nib.startDrag(false,new Rectangle(0,dragging_nib.y,maxwidth,dragging_nib.y));
+					stage.addEventListener(MouseEvent.MOUSE_UP,handleNibMouseUp);
+				}
+				
+			}
+			
+			
+			private function handleNibMouseUp(event:Event=null):void{
+				dispatchNewPosition();
+				dragging_nib.stopDrag();
+				stage.removeEventListener(MouseEvent.MOUSE_UP,handleNibMouseUp);
+				__isdragging=false;
+			}
+			
+			
+			private function dispatchNewPosition():void{
+				var maxwidth:Number=width-dragging_nib.width;
+				var nuevoWidth:Number=Math.round((maxwidth*(loadpercent/100)));
+				var positionratio:Number=(dragging_nib.x/nuevoWidth);
+				if((dragging_nib.x<=nuevoWidth)){
+				//if(true){
+					var newposition:Number=Math.round(duration*positionratio);
+					//trace("nuevoWidth"+ nuevoWidth+" DRAGGING NIB: "+dragging_nib.x+" DURATION: "+duration+" maxwidth:"+maxwidth+" POSRADIO:"+positionratio+" newPOS:"+newposition+" loadpercent"+loadpercent);
+					var ev:MediaProgressSeekEvent=new MediaProgressSeekEvent();
+					ev.position=newposition;
+					dispatchEvent(ev);
+				}
+				else{
+					
+					var max:Number=width-dragging_nib.width;
+					var pospercent:Number=((position/duration)*loadpercent)/100;
+					var goposition:Number=Math.round(max*pospercent);
+					//trace("__position "+__position+" gotoPOS: "+gotoposition);
+					dragging_nib.x=goposition;
+				}				
+			}
+			
+			
+			private function handleNibMouseOver():void{				
+				dragging_nib.source = Iconos.ICON_PROGRESS_OVER;
+			}
+			
+			private function handleNibMouseOut():void{
+				dragging_nib.source = Iconos.ICON_PROGRESS;	
+			}
+			
+			private function enableNibDragging():void{
+				dragging_nib.alpha = 1;
+				dragging_nib.buttonMode = true;
+				dragging_nib.mouseEnabled = true;
+			}
+			
+			private function clickHandlerPosition(event:MouseEvent):void{
+				//mx.controls.Alert.show(event.localX+"");
+				var maxwidth:Number=width-dragging_nib.width;
+				var nuevoWidth:Number=Math.round((maxwidth*(loadpercent/100)));
+				var positionratio:Number=(event.localX/nuevoWidth);
+				if((event.localX<=nuevoWidth)){
+				//if(true){
+					var newposition:Number=Math.round(duration*positionratio);
+					//trace("nuevoWidth"+ nuevoWidth+" DRAGGING NIB: "+dragging_nib.x+" DURATION: "+duration+" maxwidth:"+maxwidth+" POSRADIO:"+positionratio+" newPOS:"+newposition+" loadpercent"+loadpercent);
+					var ev:MediaProgressSeekEvent=new MediaProgressSeekEvent();
+					ev.position=newposition;
+					dispatchEvent(ev);
+					dragging_nib.x=event.localX;
+					handleNibMouseDown();
+				}
+				else{
+					
+					var max:Number=width-dragging_nib.width;
+					var pospercent:Number=((position/duration)*loadpercent)/100;
+					var goposition:Number=Math.round(max*pospercent);
+					//trace("__position "+__position+" gotoPOS: "+gotoposition);
+					dragging_nib.x=goposition;
+				}
+			}
+			
+			
+		]]>
+	</mx:Script>
+
+	
+
+	<mx:HBox width="100%" height="4" top="4" 
+		backgroundColor="#FFFFFF" borderColor="#FFFFFF" 
+		borderStyle="solid" 
+		horizontalScrollPolicy="off"
+	 	verticalScrollPolicy="off"
+	 	paddingLeft="0"
+	 	paddingRight="0"
+		>
+		<!--borderThickness="1"-->
+		<mx:HBox id="fill_box" backgroundColor="#666666" height="100%"
+			 borderStyle="none" paddingLeft="0" buttonMode="true" mouseDown="clickHandlerPosition(event)"  
+			paddingRight="0"/>
+		<!--borderThickness="0"-->
+	</mx:HBox>
+	
+	<mx:Image id="dragging_nib" 
+		source="{Iconos.ICON_PROGRESS}"
+		buttonMode="false"
+		mouseEnabled="false"
+	    alpha=".5"
+		mouseDown="handleNibMouseDown()" 
+		mouseOver="handleNibMouseOver()"
+	    mouseOut="handleNibMouseOut()"
+		 />
+	
+</mx:Canvas>

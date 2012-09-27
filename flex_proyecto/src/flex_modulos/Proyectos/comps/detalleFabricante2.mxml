@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 title="Agregar Fabricante"
+		 layout="vertical" creationComplete="init(event)" 
+		 close="titlewindow1_closeHandler(event)" showCloseButton="true">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Iconos;
+			import actionscripts.Utils;
+			
+			import flashx.textLayout.formats.Float;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.formatters.NumberBaseRoundType;
+			import mx.managers.PopUpManager;
+			import mx.utils.ObjectProxy;
+			import mx.utils.StringUtil;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padre:stDetalleFabricante;
+			[Bindable] public var flaq:Boolean = false;
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+					loader.dp.cargaLoader(this);
+					
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					loader.dp.hacerWS(['sbu','fabricantes']);
+
+					if(strAccion=="NUEVO"){	}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){	
+						btnAgregar.label = "Guardar";
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("detalleFabricante2->init() ",3,ex);
+				}
+				
+			}
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{		
+					// SBU
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrSBU),new ObjectProxy({clave_sbu:'',descripcion_sbu:'Sin Seleccionar'}));
+					//arr1.source = Utils.clone(loader.dp.arrSBU.source);
+					arr1.refresh();
+					cbxSBU.dataProvider = arr1;	
+					cbxSBU.labelField = "descripcion_sbu";
+					
+					// Fabricantes
+					var arr2:ArrayCollection = new ArrayCollection();
+					arr2.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrFabricantes),new ObjectProxy({clave_fabricante:'',nombre_fabricante:'Sin Seleccionar'}));
+					//arr2.source = Utils.clone(loader.dp.arrFabricantes.source);
+					arr2.refresh();
+					cbxFabricante.dataProvider = arr2;	
+					cbxFabricante.labelField = "clave_fabricante";
+					//cbxFabricante.toolTip = "nombre_fabricante";
+					
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){	
+						
+						DataProviders.selectedIndexCombo(cbxFabricante, 'clave_fabricante', item.clave_fabricante);
+						if (item.clave_fabricante == "AB"){
+							DataProviders.selectedIndexCombo(cbxSBU, 'clave_sbu', item.sbu);
+						}
+						
+						txtMonto.text = item.monto_dlls;
+					}
+					
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				cerrarVentana();
+			}
+			
+			protected function cerrarVentana():void{
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function btnCancelar_clickHandler(event:MouseEvent):void
+			{
+				cerrarVentana();
+			}
+			
+			protected function btnAgregar_clickHandler(event:MouseEvent):void
+			{
+				
+				if (strAccion != "EDITAR"){
+					if (cbxSBU.visible == true){
+						_padre.acCopia.addItem({
+							fabricante:cbxFabricante.selectedItem.nombre_fabricante,
+							clave_fabricante:cbxFabricante.selectedItem.clave_fabricante, 
+							nombre_sbu:cbxSBU.selectedItem.descripcion_sbu,
+							clave_SBU:cbxSBU.selectedItem.clave_sbu,
+							monto_dlls:Number(txtMonto.text)
+						});
+					}else{
+						_padre.acCopia.addItem({
+							fabricante:cbxFabricante.selectedItem.nombre_fabricante,
+							clave_fabricante:cbxFabricante.selectedItem.clave_fabricante, 
+							monto_dlls:Number(txtMonto.text)
+						});
+					}	
+					_padre.actualizarPorcentajes(_padre.acCopia);
+	
+					_padre.setIdInterno();
+					loader.msgAviso("Fabricante Agregado", 1);
+					
+					cerrarVentana();
+				}else{
+					_padre.acCopia.getItemAt(_padre.dgFabricantes.selectedIndex).fabricante=cbxFabricante.selectedItem.nombre_fabricante;
+					_padre.acCopia.getItemAt(_padre.dgFabricantes.selectedIndex).clave_fabricante=cbxFabricante.selectedItem.clave_fabricante; 
+					_padre.acCopia.getItemAt(_padre.dgFabricantes.selectedIndex).nombre_sbu=cbxSBU.selectedItem.descripcion_sbu;
+					_padre.acCopia.getItemAt(_padre.dgFabricantes.selectedIndex).clave_SBU=cbxSBU.selectedItem.clave_sbu;
+					_padre.acCopia.getItemAt(_padre.dgFabricantes.selectedIndex).monto_dlls=Number(txtMonto.text);
+					
+					_padre.actualizarPorcentajes(_padre.acCopia);
+					
+					_padre.setIdInterno();
+					loader.msgAviso("Fabricante Modificado", 1);
+					
+					cerrarVentana();
+				}
+			}
+			
+			
+			
+			private function lblFunction_sbu(item:Object):String {
+				return StringUtil.substitute("{0} - {1}", item.clave_sbu, item.descripcion_sbu);
+			}
+			
+			private function lblFunction_fabricante(item:Object):String {
+				return StringUtil.substitute("{0} - {1}", item.clave_fabricante, item.nombre_fabricante);
+			}
+			
+			protected function cbxFabricante_changeHandler(event:ListEvent):void {
+				
+				
+		//		if (flaq == true) {
+					if(event.currentTarget.selectedItem.clave_fabricante=="AB"){
+						cbxSBU.visible = true;
+						lblsbu.visible = true;
+					}else{
+						if (cbxSBU.visible == true){
+							cbxSBU.visible = false;
+							lblsbu.visible = false;
+						}
+					}
+		//		}
+	//			if(strAccion == "EDITAR") {
+		//			flaq = true;
+		//		}
+				
+			}
+			
+		]]>
+	</fx:Script>
+
+	<mx:HBox width="100%">
+		<mx:Label text="Fabricante:"/>
+		<mx:ComboBox id="cbxFabricante" labelFunction="lblFunction_fabricante" change="cbxFabricante_changeHandler(event)"/>
+		<mx:Label id="lblsbu" text="SBU:" visible="false"/>
+		<mx:ComboBox id="cbxSBU" labelFunction="lblFunction_sbu" visible="false"/>
+	</mx:HBox>
+	<mx:HBox width="100%">
+		<mx:Label text="Monto dlls"/>
+		<mx:TextInput id="txtMonto" />
+		<!--<mx:Label text="Porcentaje:"/>
+		<mx:HSlider id="sl" liveDragging="true" minimum="0" maximum="100" snapInterval="1" tickInterval="20" labels="[0,20,40,60,80,100]"/> -->
+	</mx:HBox>
+	<mx:HRule width="100%"/>
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:LinkButton id="btnAgregar" label="Agregar" icon="{Iconos.ADD16}" click="btnAgregar_clickHandler(event)"/>
+		<mx:LinkButton id="btnCancelar" label="Cancelar" icon="{Iconos.iconRemove}" click="btnCancelar_clickHandler(event)"/>
+	</mx:HBox>
+	
+	<fx:Declarations>
+		<s:ArrayCollection id="arraySBU">
+			<fx:Object label="SBU1" />
+			<fx:Object label="SBU2" />
+			<fx:Object label="SBU3" />
+			<fx:Object label="SBU4" />
+		</s:ArrayCollection>
+		<s:ArrayCollection id="arrayFabricante">
+			<fx:Object label="Belden" />
+			<fx:Object label="Panduit" />
+			<fx:Object label="Hoffman" />
+			<fx:Object label="Hauwei" />
+		</s:ArrayCollection>
+		
+	</fx:Declarations>
+	
+</mx:TitleWindow>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" layout="vertical" width="100%" height="100%"
+				showCloseButton="true" close="titlewindow1_closeHandler(event)"
+				creationComplete="init(event)">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.Iconos;
+			import actionscripts.Utils;
+			
+			import flex_modulos.Nomina.Nomina;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.utils.ObjectProxy;
+			import mx.validators.Validator;
+			
+			[Bindable] public var _padre:Nomina;
+			[Bindable] private var validatorArr:Array;
+			
+			protected function init(event:FlexEvent):void
+			{
+				initValidators();
+			}
+			
+			protected function titlewindow1_closeHandler(event:*):void
+			{
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function btnGuardar_clickHandler(event:MouseEvent):void
+			{
+				_padre.ACNominas2.source=DataProviders.insertarSource(Utils.clone(_padre.ACNominas2),
+					new ObjectProxy({
+						nombre:txtNombre.text,nombrelargo:txtApellidos.text+' '+txtNombre.text, codigoempleado:txtCodigoEmpleado.text,
+						sucursalpagoelectronico:txtSucursalpagoelectronico.text,cuentapagoelectronico:txtCuentapagoelectronico.text,
+						importetotal:txtImporte.text
+					}));
+				titlewindow1_closeHandler(event);
+				Alert.show(txtNombre.text+' '+txtApellidos.text+', Agregado a la Nomina',"Agregado",4,null,null,Iconos.MESSAGEBOX_OK);
+			}
+			
+			protected function initValidators():void{
+				validatorArr = new Array();  
+				validatorArr.push(svNombre);
+				validatorArr.push(svApellido);
+				validatorArr.push(svImporte);
+				validatorArr.push(svCodigoEmpleado);
+				validatorArr.push(svSucursalPagoElectronico);
+				validatorArr.push(svCuenta);
+			}
+			
+			private function validateForm(evt:MouseEvent):void {
+				var validatorErrorArray:Array = Validator.validateAll(validatorArr);;
+				var isValidForm:Boolean = validatorErrorArray.length == 0;
+				if (isValidForm) {
+					btnGuardar_clickHandler(evt);
+				} else {
+					var err:ValidationResultEvent;
+					var errorMessageArray:Array = [];
+					for each (err in validatorErrorArray) {
+						var errField:String = FormItem(err.currentTarget.source.parent).label
+						errorMessageArray.push(errField + ": " + err.message);
+					}
+					Alert.show(errorMessageArray.join("\n\n"), "Invalid form...", Alert.OK);
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:VBox width="100%" height="100%">
+		<mx:Form width="100%">
+			<mx:FormItem label="Nombre(s):">
+				<mx:TextInput id="txtNombre"/>
+			</mx:FormItem>
+			<mx:FormItem label="Apellidos:">
+				<mx:TextInput id="txtApellidos"/>
+			</mx:FormItem>
+			<mx:FormItem label="Importe:">
+				<mx:TextInput id="txtImporte"/>
+			</mx:FormItem>
+			<mx:FormItem label="Codigo Empleado:">
+				<mx:TextInput id="txtCodigoEmpleado"/>
+			</mx:FormItem>
+			<mx:FormItem label="Sucursal:">
+				<mx:TextInput id="txtSucursalpagoelectronico"/>
+			</mx:FormItem>
+			<mx:FormItem label="Cuenta:">
+				<mx:TextInput id="txtCuentapagoelectronico"/>
+			</mx:FormItem>
+			<mx:FormItem >
+				<mx:HBox width="100%">
+					<mx:LinkButton id="btnGuardar" label="Guardar" icon="{Iconos.FILESAVE16}" click="validateForm(event)"/>
+					<mx:LinkButton id="btnCancelar" label="Cancelar" icon="{Iconos.REMOVE16}" click="{titlewindow1_closeHandler(event)}"/>
+				</mx:HBox>
+			</mx:FormItem>
+		</mx:Form>
+	</mx:VBox>
+	<fx:Declarations>
+		<mx:StringValidator id="svNombre" source="{txtNombre}" property="text" required="true" requiredFieldError="Nombre Requerido"/>
+		<mx:StringValidator id="svApellido" source="{txtApellidos}" property="text" required="true" requiredFieldError="Apellido Requerido"/>
+		<mx:StringValidator id="svImporte" source="{txtImporte}" property="text" required="true" requiredFieldError="Importe Requerido"/>
+		<mx:StringValidator id="svCodigoEmpleado" source="{txtCodigoEmpleado}" property="text" required="true" requiredFieldError="Codigo de Empleado Requerido"/>
+		<mx:StringValidator id="svSucursalPagoElectronico" source="{txtSucursalpagoelectronico}" property="text" required="true" requiredFieldError="Sucursal Requerida"/>
+		<mx:StringValidator id="svCuenta" source="{txtCuentapagoelectronico}" property="text" required="true" requiredFieldError="Cuenta Requerido"/>
+	</fx:Declarations>
+</mx:TitleWindow>

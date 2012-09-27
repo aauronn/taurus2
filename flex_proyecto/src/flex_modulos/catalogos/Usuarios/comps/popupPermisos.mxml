@@ -1,0 +1,530 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actionscripts:SuperPanel xmlns:fx="http://ns.adobe.com/mxml/2009" 
+						  xmlns:s="library://ns.adobe.com/flex/spark" 
+						  xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:actionscripts="actionscripts.*" 
+						  layout="vertical" close="close()" alpha="1.0"  title="Asignación de Permisos"  
+						  allowClose="true" allowDrag="true" allowResize="true" allowMaximize="true" horizontalScrollPolicy="off"
+						  keyDown="if(event.keyCode == Keyboard.ESCAPE)close()"  creationCompleteEffect="Fade" creationComplete="{init()}" 
+						  width="720" height="450" backgroundColor="#FFFFFF" cornerRadius="9" paddingTop="5" paddingBottom="5" paddingLeft="5" paddingRight="5"  titleIcon="{Iconos.KEYS24}"
+						  styleName="catalogPanel" backgroundAlpha="1.0" >
+	<fx:Script>
+		<![CDATA[
+			import mx.managers.DragManager;
+			import mx.collections.XMLListCollection;
+			import mx.events.DragEvent;
+			import mx.events.ListEvent;
+			import mx.controls.List;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.StringUtil;
+			import mx.managers.PopUpManager;
+			import mx.events.ValidationResultEvent;
+			import mx.validators.Validator;
+			import mx.controls.Alert;
+			import mx.utils.ObjectProxy;
+			import mx.collections.ArrayCollection;
+			import mx.controls.FormItemLabel;	
+			import actionscripts.Iconos;
+			import actionscripts.Utils;
+			
+			//VARIABLE DE LA CLASE PADRE			
+			[Bindable] public var _root:*;
+			
+			//VARIABLE QUE COMPONENETE INICIO EL DRAG
+			private var dropInitiator:String;			
+			
+			//FUNCION INICIALIZADORA
+			private function init():void{
+				
+				if(_root.strAccion == 'COPIAR'){
+					var i:int = 0;
+					var dataCompFrom:XMLListCollection = new XMLListCollection();
+					dataCompFrom = (permAsignados.dataProvider as XMLListCollection);
+					
+					for(i = 0; i < dataCompFrom.length; i++){
+						saveHistoryMovements(dataCompFrom[i],'add');
+					}
+				}
+			}
+			
+			//FUNCIONES DE LOS PERMISOS
+			
+			//FUNCION QUE TRAE LOS PADRES DE UN NODO
+			private function getParent(arr:Array,item:Object):void{
+				
+				if((item as XML).parent()!=null){
+					var xml2:XML=(item as XML).parent();
+					var xml3:XML=Utils.clone(xml2);
+					for(var i:int=xml2.children().length()-1; i>=0; i--){
+						delete xml3.children()[i];
+					}
+					
+					if(xml3.attributes().length()>0){
+						arr.push(xml3);
+						getParent(arr,xml2);
+					}
+				}
+			}
+			
+			//FUNCION QUE BUSCA SI YA EXISTE EL PADRE EN EL ARREGLO
+			private function searchParent(item:Object, searchList:XMLListCollection):void{
+				var i:int;
+				for(i=0; i<searchList.length; i++){
+					
+					if(searchList[i].@nombre==item.parent.@nombre){	
+						item.objeto=searchList[i];
+						item.found=true;
+						break;
+					}
+					
+					if((searchList[i] as XML).children().length()>0){
+						searchParent(item,new XMLListCollection((searchList[i] as XML).children()));
+					}
+				}
+			}
+			
+			//FUNCION UTILIZADA PARA BORRAR UN NODO RECURSIVAMENTE
+			public static function deleteNodeItem(selItem:XML,tree:SpringLoadedTree):void{
+				do{
+					
+					var selParent:XML=tree.getParentItem(selItem);
+					//var selParent:XML=selItem.parent();
+					
+					if(selParent==null){
+						tree.dataProvider.removeItemAt(selItem.childIndex());
+					}
+					else{
+						tree.dataDescriptor.removeChildAt(selParent,selItem,selItem.childIndex(),tree);
+					}
+					selItem=selParent;
+				}while ((!tree.dataDescriptor.hasChildren(selItem,tree))&&(selItem!=null));
+			}
+			
+			//FUNCION UTILIZADA QUE GUARDA LOS CAMBIOS HECHOS EN LOS PERMISOS
+			private function saveHistoryMovements(item:Object,move:String):void{
+				var flag:Boolean=false;
+				var permiso:XML=new XML;
+				permiso=Utils.clone(item);
+				if(permiso.@idpermiso!=""){
+					
+					for(var j:int=_root.xmlPermCambios.length-1; j>=0; j--){
+						if((_root.xmlPermCambios[j].@idpermiso == permiso.@idpermiso)){
+							_root.xmlPermCambios.removeItemAt(j);
+							flag=true;
+							break;
+						}		
+					}
+					
+					if(!flag){
+						permiso.@move=move;
+						_root.xmlPermCambios.addItem(permiso);
+					}		
+					
+				}
+				else{
+					if(permiso.children().length()>0){
+						for(var i:int=0; i<permiso.children().length(); i++){
+							saveHistoryMovements(permiso.children()[i],move);	
+						}
+					}
+				}
+			}
+			
+			//FUNCION QUE DESHACE LOS CAMBIOS HECHOS EN PERMISOS
+			private function undoActions():void{
+				
+				for(var i:int=0; i<_root.xmlPermCambios.length; i++){
+					if(_root.xmlPermCambios[i].@move=="add"){
+						getItemBindable(_root.xmlPermCambios[i] as XML,_root.xmlPermisosAsignados.children(),permSinAsignar,"add");
+						getItemBindable(_root.xmlPermCambios[i] as XML,_root.xmlPermisosAsignados.children(),permAsignados,"remove");
+					}
+					else{
+						getItemBindable(_root.xmlPermCambios[i] as XML,_root.xmlPermisosDisponibles.children(),permAsignados,"add");
+						getItemBindable(_root.xmlPermCambios[i] as XML,_root.xmlPermisosDisponibles.children(),permSinAsignar,"remove");
+					}
+				}
+				
+				_root.xmlPermCambios.removeAll();
+				callLater(_root.countChildren);
+				borrarDescripciones();
+				
+			}
+			
+			//FUNCION UTILIZADA PARA AGREGAR PERMISOS POR MEDIO DEL BOTON >>
+			private function agregarPerm():void{
+				
+				try{
+					var i:int;
+					
+					if(permSinAsignar.selectedItems.length>1){
+						for(i = permSinAsignar.selectedItems.length-1; i >= 0; i--){
+							saveHistoryMovements(permSinAsignar.selectedItems[i],'add');
+							addPermiso(permSinAsignar.selectedItems[i],permAsignados.dataProvider as XMLListCollection);
+							deleteNodeItem(permSinAsignar.selectedItems[i],permSinAsignar);
+						}
+					}
+					else{
+						saveHistoryMovements(permSinAsignar.selectedItem,'add');
+						addPermiso(permSinAsignar.selectedItem,permAsignados.dataProvider as XMLListCollection);
+						deleteNodeItem(permSinAsignar.selectedItem as XML,permSinAsignar);
+					}
+					
+					callLater(_root.countChildren);
+					borrarDescripciones();
+				}
+				catch(e:*){
+					Alert.okLabel="Aceptar";
+					Alert.buttonWidth=80;
+					Alert.show("Seleccione el Permiso Disponible que desea agregar.","Aviso",4.0,null,null,Iconos.MESSAGEBOX_WARNING,Alert.OK);	        		
+				}
+			}
+			
+			//FUNCION UTILIZADA PARA QUITAR PERMISOS POR MEDIO DEL BOTON <<
+			private function quitarPerm():void{
+				
+				try{
+					var i:int;
+					
+					if(permAsignados.selectedItems.length>1){
+						for(i = permAsignados.selectedItems.length-1; i >= 0; i--){
+							saveHistoryMovements(permAsignados.selectedItems[i],'remove');
+							addPermiso(permAsignados.selectedItems[i],permSinAsignar.dataProvider as XMLListCollection);
+							deleteNodeItem(permAsignados.selectedItems[i],permAsignados);	
+						}
+					}
+					else{
+						saveHistoryMovements(permAsignados.selectedItem,'remove');
+						addPermiso(permAsignados.selectedItem,permSinAsignar.dataProvider as XMLListCollection);
+						deleteNodeItem(permAsignados.selectedItem as XML,permAsignados);
+					}
+					
+					callLater(_root.countChildren);
+					borrarDescripciones()
+				}
+				catch(e:*){
+					Alert.okLabel="Aceptar";
+					Alert.buttonWidth=80;
+					Alert.show("Seleccione el Permiso Asignado que desea quitar.","Aviso",4.0,null,null,Iconos.MESSAGEBOX_WARNING,Alert.OK);	        		
+				}
+			}
+			
+			private function allFromTo(compFrom:SpringLoadedTree, compTo:SpringLoadedTree):void{
+				try{
+					var i:int;
+					
+					var dataCompFrom:XMLListCollection = new XMLListCollection();
+					dataCompFrom = (compFrom.dataProvider as XMLListCollection);
+					
+					var datacompTo:XMLListCollection = new XMLListCollection();
+					datacompTo = (compTo.dataProvider as XMLListCollection);
+					
+					
+					for(i = dataCompFrom.length-1; i >=0; i--){
+						if(compTo.id == 'permAsignados'){
+							saveHistoryMovements(dataCompFrom[i],'add');
+						}
+						else{
+							saveHistoryMovements(dataCompFrom[i],'remove');
+						}
+						
+						addPermiso(dataCompFrom[i],datacompTo);
+						deleteNodeItem(dataCompFrom[i],compFrom);	
+					}
+					
+					
+					callLater(_root.countChildren);
+					borrarDescripciones();
+				}
+				catch(e:*){
+					//trace("entre: "+ e.toString());        		
+				}
+			}
+			
+			//FUNCION QUE RECIBE LOS NODOS QUE SE DESEAN AGREGAR
+			private function addPermiso(item:Object,arrTarget:XMLListCollection):void{
+				var flag:Boolean=false;
+				if(item.@idpermiso!=""){
+					insertXML(item as XML,arrTarget);					
+				}
+				else{
+					if(item.children().length()>0){
+						for(var i:int=0; i<item.children().length(); i++){
+							addPermiso(item.children()[i],arrTarget);	
+						}
+					}
+				}
+			}
+			
+			//FUNCION QUE HACE BINDABLE UN XML PARA DESPUES AGREGARLO O BORRARLO
+			private function getItemBindable(item:XML, arrSource:XMLList, treeTarget:SpringLoadedTree, tipoMovto:String):void{
+				
+				for(var i:int=arrSource.length()-1; i>=0; i--){
+					if(arrSource[i].@idpermiso==item.@idpermiso){
+						if(tipoMovto=="add"){
+							insertXML(arrSource[i],treeTarget.dataProvider as XMLListCollection);
+						}
+						else{
+							var node:XML=arrSource[i];
+							var openObj:Object=treeTarget.openItems;
+							
+							do{
+								var openNodes:XML=node.parent();
+								treeTarget.expandItem(openNodes,true);
+								node=openNodes;
+							}while (node!=null);
+							
+							deleteNodeItem(arrSource[i] as XML,treeTarget);
+							treeTarget.openItems=openObj;
+							
+						}
+						break;
+					}
+					else{
+						if((arrSource[i] as XML).children().length()>0){
+							getItemBindable(item,arrSource[i].children(),treeTarget,tipoMovto);
+						}
+					}
+				}
+				
+			}
+			
+			//FUNCION QUE AGREGA EL NODO DONDE DEBE DE IR
+			private function insertXML(itemBind:XML,arrTarget:XMLListCollection):void{
+				var arrParents:Array=new Array;
+				var xmlCadena:XML=Utils.clone(itemBind);
+				var objPermiso:Object;
+				
+				getParent(arrParents,itemBind);
+				
+				for (var i:int=0; i<arrParents.length; i++){
+					if(arrParents[i].@nombre!=''){
+						objPermiso={parent:arrParents[i],found:false,objeto:null};
+						searchParent(objPermiso,arrTarget);
+						if(objPermiso.found){
+							(objPermiso.objeto as XML).appendChild(xmlCadena);
+							xmlCadena=null;
+							break;
+						}
+						else{
+							xmlCadena=(arrParents[i] as XML).appendChild(xmlCadena);
+						}	
+					}	
+				}
+				
+				if(xmlCadena!=null){
+					var raiz:XML=new XML(<permiso/>);
+					raiz.appendChild(xmlCadena);
+					var lista:XMLList=raiz.children();
+					arrTarget.addItem(lista[0]);
+				}		
+			}
+			
+			//FUNCION QUE DA UNA DESCRIPCION DEL PERMISO
+			private function updateDescripcion(event:MouseEvent,textA:TextArea):void {
+				var descSelectedStr:String="";
+				
+				if((event.currentTarget as SpringLoadedTree).selectedItems.length>1){
+					descSelectedStr = "Varios Seleccionados";
+				}
+				else{
+					if((event.currentTarget as SpringLoadedTree).selectedItems.length==1){
+						if((event.currentTarget as SpringLoadedTree).selectedItems[0].@idpermiso==''){
+							descSelectedStr="Contiene los permisos de "+(event.currentTarget as SpringLoadedTree).selectedItems[0].@nombre;
+						}
+						else{
+							descSelectedStr = (event.currentTarget as SpringLoadedTree).selectedItems[0].@descripcion;		
+						}	
+					}	
+				}
+				textA.text=descSelectedStr.toUpperCase();			
+			}
+			
+			//FUNCIONES DE DRAG & DROP			
+			private function setDragInitator(event:MouseEvent, id:String):void{
+				dropInitiator = id;
+			}
+			
+			private function doDragEnter(event:DragEvent):void {
+				
+				var dropTarget:SpringLoadedTree = SpringLoadedTree(event.currentTarget);
+				var dataInfo:XMLListCollection = dropTarget.dataProvider as XMLListCollection;
+				
+				if(!event.dragSource.hasFormat("treeItems")) return;     // no useful data	
+				var items:Array = event.dragSource.dataForFormat("treeItems") as Array;
+				
+				
+				var drop:Boolean = true;
+				
+				if(dropInitiator != dropTarget.id){
+					
+					DragManager.showFeedback(DragManager.COPY);
+					DragManager.acceptDragDrop(dropTarget);
+					
+				}
+			}
+			
+			private function doDragDrop(event:DragEvent):void {
+				
+				var drop:Boolean = false;  
+				var j:int=0;
+				var objeto:Object;      
+				var dropTarget:SpringLoadedTree = SpringLoadedTree(event.currentTarget);
+				var dragInit:SpringLoadedTree = SpringLoadedTree(event.dragInitiator);
+				
+				doDragExit(event);
+				
+				if(!event.dragSource.hasFormat("treeItems")) return;     // no useful data	
+				var items:Array = event.dragSource.dataForFormat("treeItems") as Array;
+				
+				var dropLoc:int = dropTarget.calculateDropIndex(event); 
+				
+				var dataInit:XMLListCollection = dragInit.dataProvider as XMLListCollection;      
+				var dataInfo:XMLListCollection = dropTarget.dataProvider as XMLListCollection;
+				
+				for(var i:int = 0; i < items.length; i++){
+					
+					addPermiso(items[i],dataInfo);              		
+					deleteNodeItem((items[i] as XML),dragInit);
+					
+					if(dropTarget.id == 'permAsignados'){
+						saveHistoryMovements(items[i],'add');
+					}
+					else{
+						saveHistoryMovements(items[i],'remove');
+					}
+					
+				}
+				
+				callLater(_root.countChildren);
+				borrarDescripciones();
+				
+			}
+			
+			private function doDragExit(event:DragEvent):void {
+				var dropTarget:SpringLoadedTree = SpringLoadedTree(event.currentTarget);          
+				dropTarget.hideDropFeedback(event);
+			}
+			
+			private function walkNext(_tree:SpringLoadedTree, _count:int=0):void{
+				_count++;
+				if((_count <= 1)){
+					if(_tree.dataDescriptor.isBranch(_tree.selectedItem)){
+						_tree.expandItem(_tree.selectedItem,true,true);
+						_tree.validateNow();
+					}
+				}
+				_tree.selectedIndex++;
+				if(_tree.dataDescriptor.isBranch(_tree.selectedItem)){
+					_tree.expandItem(_tree.selectedItem,true,true);
+					_tree.validateNow();
+					// recursion --->
+					walkNext(_tree,_count);
+				}
+					// else if a leaf
+				else{
+					// scroll to the selected index
+					_tree.scrollToIndex(_tree.selectedIndex);
+					_tree.validateNow();
+					// finished ---|
+				}
+			}
+			
+			private function expandAll(_tree:SpringLoadedTree, item:* = null, _count:int=0):void{
+				var i:int = 0
+				_count++;
+				if(!item){
+					for (i=0; i < (_tree.dataProvider as XMLListCollection).source.length();  i++){
+						if(_tree.dataDescriptor.isBranch((_tree.dataProvider as XMLListCollection).source[i])){
+							_tree.expandItem((_tree.dataProvider as XMLListCollection).source[i],true,true);
+							_tree.validateNow();
+							expandAll(_tree,(_tree.dataProvider as XMLListCollection).source[i],_count);
+						}
+					}
+				}
+				else{
+					if(item.children().length()>0){
+						for(i = 0; i < item.children().length(); i++){
+							if(_tree.dataDescriptor.isBranch(item.children()[i])){
+								_tree.expandItem(item.children()[i],true,true);
+								_tree.validateNow();
+								expandAll(_tree,item.children()[i],_count);
+							}
+						}
+						
+					}
+				}
+			}
+			
+			private function collapseAll(_tree:SpringLoadedTree):void{
+				_tree.openItems = [];
+			}
+			
+			
+			//CERRRAR VENTANA
+			private function close():void{
+				PopUpManager.removePopUp(this);					
+			}
+			
+			private function borrarDescripciones():void{
+				if(!(permSinAsignar.selectedItems && permSinAsignar.selectedItems.length>0)){
+					txtDescripcionPermiso.text = '';
+				}
+				if(!(permAsignados.selectedItems && permAsignados.selectedItems.length>0)){
+					txtDescripcionPermiso2.text = '';
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<mx:Form width="100%" height="100%" paddingBottom="0" paddingTop="0">
+		
+		<mx:HBox styleName="fondoTitulos" width="100%">
+			<mx:Label text="Permisos del Usuario" fontWeight="bold" />
+		</mx:HBox>
+		
+		<mx:VBox width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+			
+			<mx:LinkButton width="150" icon="{Iconos.UNDO16}" enabled="{_root.xmlPermCambios.length>0}" id="btnUndo" toolTip="Deshacer Cambios de la Lista"  label="Deshacer Cambios" buttonMode="{btnUndo.enabled}" alpha="{btnUndo.enabled?1:0.4}" click="undoActions()" />
+			
+			
+			<mx:HBox width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+				<mx:VBox width="100%" height="100%">
+					<mx:Label text="Permisos Disponibles ({_root.numDisponibles})" fontFamily="Myriad" fontWeight="bold" fontSize="12"/>
+					<mx:HBox horizontalAlign="left" width="100%">
+						<mx:Button label="+" click="{expandAll(permSinAsignar);borrarDescripciones()}" />
+						<mx:Button label="-" click="{collapseAll(permSinAsignar);borrarDescripciones()}" />
+					</mx:HBox>
+					<actionscripts:SpringLoadedTree defaultLeafIcon="{Iconos.FWD_BLUE16}"  id="permSinAsignar" openOnClick="false" dataProvider="{_root.xmlPermisosDisponibles}" labelField="@nombre" width="100%" height="100%" showRoot="true" mouseDown="setDragInitator(event, 'permSinAsignar');" dragEnabled="true" dropEnabled="false" allowMultipleSelection="true" dragExit="doDragExit(event);" dragDrop="doDragDrop(event);" dragEnter="doDragEnter(event);" click="updateDescripcion(event,txtDescripcionPermiso)" />	
+				</mx:VBox>
+				
+				
+				<mx:VBox id="contBotones" horizontalAlign="center" verticalAlign="middle" >
+					<mx:Button id="btnAgregarTodo" toolTip="Agregar Todos" label="&gt;&gt;" click="{allFromTo(permSinAsignar,permAsignados)}"  />
+					<mx:Button id="btnAgregar" toolTip="Agregar Seleccionados" label="&gt;" click="agregarPerm()"/>
+					<mx:Button id="btnRemover" toolTip="Quitar Seleccionados" label="&lt;" click="quitarPerm()"/>
+					<mx:Button id="btnQuitarTodo" toolTip="Quitar Todos" label="&lt;&lt;" click="{allFromTo(permAsignados,permSinAsignar)}"  />
+				</mx:VBox>
+				<mx:VBox width="100%" height="100%">
+					<mx:Label text="Permisos Asignados ({_root.numAsignadas})" fontFamily="Myriad" fontWeight="bold" fontSize="12"/>
+					<mx:HBox horizontalAlign="left" width="100%">
+						<mx:Button label="+" click="{expandAll(permAsignados);txtDescripcionPermiso2.text=''}" />
+						<mx:Button label="-" click="{collapseAll(permAsignados);txtDescripcionPermiso2.text=''}" />
+					</mx:HBox>
+					<actionscripts:SpringLoadedTree defaultLeafIcon="{Iconos.FWD_BLUE16}" id="permAsignados" openOnClick="false" dataProvider="{_root.xmlPermisosAsignados}" labelField="@nombre" width="100%" height="100%" showRoot="true" dropEnabled="false" mouseDown="setDragInitator(event, 'permAsignados');" dragEnter="doDragEnter(event);" dragExit="doDragExit(event);" dragDrop="doDragDrop(event);" dragEnabled="true" allowMultipleSelection="true" click="updateDescripcion(event,txtDescripcionPermiso2)" />
+				</mx:VBox>
+				
+			</mx:HBox>
+			
+			<mx:HBox width="100%" horizontalAlign="center" verticalAlign="middle">
+				<mx:TextArea id="txtDescripcionPermiso" width="50%" editable="false"/>
+				<mx:Spacer width="{contBotones.width}"/>
+				<mx:TextArea id="txtDescripcionPermiso2" width="50%" editable="false"/>
+			</mx:HBox>
+			
+		</mx:VBox>
+	</mx:Form>	
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</actionscripts:SuperPanel>

@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actionscripts:SuperPanel xmlns:actionscripts="actionscripts.*" xmlns:mx="http://www.adobe.com/2006/mxml" 
+	layout="vertical" close="{cerrarPopUp()}" alpha="1.0"  title="Visualizador Multimedia"  
+	allowClose="true" allowDrag="true" allowResize="true" allowMaximize="true" horizontalScrollPolicy="off"  
+	keyDown="if(event.keyCode == Keyboard.ESCAPE)cerrarPopUp()" creationComplete="{init()}" resize="{iframe.resizeWindow();this.validateNow()}" move="{iframe.resizeWindow()}"  
+	width="700" height="500" backgroundColor="#FFFFFF" cornerRadius="9" titleIcon="{Iconos.SEARCH_small}"
+	styleName="catalogPanel" backgroundAlpha="1.0" xmlns:panzoom="actionscripts.com.adobe.wheelerstreet.fig.panzoom.*" xmlns:SuperUploader="components.SuperUploader.*" xmlns:comps="components.MultimediaPlayer.comps.*" xmlns:SuperPlayer="components.SuperPlayer.*">
+	
+	<mx:Script>
+		<![CDATA[
+			import actionscripts.Utils;
+			import actionscripts.com.SmoothImage;
+			import actionscripts.com.flexer.ImageBorder;
+			import actionscripts.com.SmoothImage;
+			import mx.collections.ArrayCollection;
+			import mx.utils.ObjectUtil;
+			import mx.utils.StringUtil;
+			import mx.containers.Panel;
+			
+			import mx.managers.PopUpManager;
+			import actionscripts.Iconos;
+			
+			
+			[Bindable] public var arrArchivos:Array = new Array();
+			/*
+				Ejemplo de como debe llegar cada item en arrArchivos:
+				
+				item {
+					descripcion = "Angry-Birds_04.jpg"
+				    extension = ".jpg"
+				    idarchivo = 29
+				    nombreoriginal = "Angry-Birds_04.jpg"
+				    ruta = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_062333900.jpg"
+				    rutaThumb = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_062333900.jpg"
+				    tipoarchivo = "imagen"
+				    tamanioarchivo = 1000
+				}
+				item {
+				    descripcion = "superpanel.rar"
+				    extension = ".rar"
+				    idarchivo = 31
+				    nombreoriginal = "superpanel.rar"
+				    ruta = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_071770400.rar"
+				    rutaThumb = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_071770400.rar"
+				    tipoarchivo = "comprimido"
+				    tamanioarchivo = 1000
+			    }
+				item {
+					descripcion = "f08.doc"
+				    extension = ".doc"
+				    idarchivo = 32
+				    nombreoriginal = "f08.doc"
+				    ruta = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_028888900/img_028888900.doc"
+				    rutaThumb = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_028888900/img_028888900.doc"
+				    tipoarchivo = "documento"
+				    tamanioarchivo = 1000
+    			}
+				item {
+					descripcion = "f08.doc - Hoja 1"
+				    extension = ".swf"
+				    idarchivo = 33
+				    nombreoriginal = "" 
+				    ruta = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_028888900/swf/p1.swf"
+				    rutaThumb = "http://localhost/svn_sidur_obras/imagenes_upload/1292522200256/img_028888900/thumbnails/p1.png"
+				    tipoarchivo = "swf"
+				    tamanioarchivo = 1000
+			    }
+    		*/
+			
+			[Bindable] public var linkToOpen:String="";
+			[Bindable] public var nombreoriginal:String = "";
+			[Bindable] public var tamanioarchivo:String = "";
+			
+			
+			// ZoomContainer
+			[Bindable] private var _pageCount:int = 0;
+			[Bindable] private var _actualPage:int = 0;
+			[Bindable] private var _folderSlides:String = "swf";
+			[Bindable] private var _folderThumbs:String = "thumbnails";
+			[Bindable] private var _slidesBaseName:String = "p";
+			[Bindable] private var _thumbnailsBaseName:String = "p";
+			[Bindable] private var _hidePageBar:Boolean = true;
+			[Bindable] private var _urlFile:String = "";			
+			[Bindable] private var urlBase:String = "";
+			// ZoomContainer
+			
+			[Bindable] public var thumbSize:Number = 45; //69;
+			
+			private function cerrarPopUp():void{
+				iframe.visible = false;
+				PopUpManager.removePopUp(this);
+			}
+			
+			
+			public function init():void{
+				// Removemos todos los archivos
+				//contenedorArchivos.removeAllChildren();
+				//contenedorArchivosVertical.removeAllChildren();
+				
+				
+				// Agregamos evento para el zoom
+				zoomComponent.addEventListener( ImageZoom.EVENT_SCALE_UPDATED, onScaleChange );
+				
+				
+				// Vemos el primer archivo
+				if(arrArchivos.length>0) cargaItem(arrArchivos[0]);
+				
+				
+				// Revisar que existan imagenes
+				var existenImagenes:Boolean = false;
+				for(var i:int=0;i<arrArchivos.length;i++){
+					if(arrArchivos[i].tipoarchivo=="imagen" || arrArchivos[i].tipoarchivo=="swf"){
+						existenImagenes = true;
+						break;		
+					}
+				}
+				
+				// Si no existen imagenes a visualizar quitar el zoomContainer y mostrar un grid con los archivos
+				if(!existenImagenes){
+					txtDescripcion.text = "Archivos Disponibles";
+					
+					visibilityIFrame(false);
+					visibilityMPlayer(false);
+					visibilityImageZoom(false);
+					visibilityLink(false);					
+					visibilityDG(true);
+					
+					
+					/*
+					contenedorBotones.visible = false;
+					contenedorBotones.includeInLayout = false;
+					zoom.visible = false;
+					DG.dataProvider = arrArchivos;
+					contenedorDG.visible = true;
+					contenedorDG.includeInLayout = true;*/
+				}else{
+				
+					// En caso de haber más de 1 archivo mostrar la lista
+					if(arrArchivos.length>1){				
+						for(var j:int=0;j<arrArchivos.length;j++){
+							var item:Object = arrArchivos[j];
+							
+							var v:VBox=new VBox();
+							v.width  = thumbSize;
+							v.height = thumbSize;
+							v.horizontalScrollPolicy="off";
+							v.verticalScrollPolicy="off";
+							v.setStyle("borderStyle","solid");
+							v.toolTip = item.descripcion;
+							
+							// ImageBorder => agrega un borde a la imagen cargada poniendo como color de borde el color promedio de la imagen
+							var im:ImageBorder=new ImageBorder();
+								
+							im.source = Utils.getImagenByTipoArchivo(item);							
+							im.borderThickness=5;
+							im.data = item;
+							im.cornerRadius=6;
+							im.percentWidth=100;
+							im.percentHeight=100;
+							im.maintainAspectRatio=false;
+							im.buttonMode=true;
+							im.addEventListener(MouseEvent.CLICK,clickEvent);
+							
+							v.addChild(im);						
+							contenedorArchivos.addChild(v);							
+						}	
+					}
+				}
+				
+				changeLayoutVertical();			
+			}
+			
+			
+			
+		
+			
+			// Evento zoom
+			private function onScaleChange( event : Event ) : void{
+				zoom.value = zoomComponent.scale;
+			}
+			 
+			 
+			 
+			// Evento al hacer click sobre uno de los thumbs 
+			private function clickEvent(e:Event):void{
+				if(linkToOpen != e.currentTarget.data.ruta){
+					cargaItem(e.currentTarget.data);
+				}
+				/*if(zoomComponent.source != e.currentTarget.data.ruta || hbxLink.visible==true){
+					cargaItem(e.currentTarget.data);
+				}*/				
+			}
+			
+			
+			// Carga el archivo seleccionado
+			private function cargaItem(item:Object):void{
+				try{
+					linkToOpen     = item.ruta;
+					nombreoriginal = item.nombreoriginal;
+					tamanioarchivo = Utils.formatFileSize(item.tamanioarchivo as Number);
+					
+
+					// Si el tipo de archivo es documento o comprimido (rar,zip) mostrar el cuadro de descarga
+					if(item.tipoarchivo=="documento" || item.tipoarchivo=="comprimido"){
+						
+						visibilityDG(false);
+						visibilityIFrame(false);
+						visibilityMPlayer(false);
+						visibilityImageZoom(false);
+						visibilityLink(true);
+						visibilityBtnOpenWindow(false);
+						
+						lnkButton.setStyle("icon",Utils.getDownloadIconByExtension(item.extension));
+						
+					}else if(item.tipoarchivo=="multimedia"){						
+						
+						visibilityImageZoom(false);
+						visibilityDG(false);
+						visibilityIFrame(false);
+						visibilityLink(false);
+						visibilityMPlayer(true);
+						visibilityBtnOpenWindow(true);
+						
+						mplayer.url_recurso  = item.ruta;
+						mplayer.titulo       = item.descripcion;
+						mplayer.tipo_recurso = (item.extension==".flv" || item.extension==".youtube") ?  "video" : "audio";
+						mplayer.init();
+					
+					
+						if(int(item.interno)==1){
+							//descarga
+							changeStyleBtnOpenWindow(item);
+						}else{
+							//ventana nueva (link)
+							changeStyleBtnOpenWindow();							
+						}
+					}else if(item.tipoarchivo=="link"){	
+						
+						visibilityMPlayer(false);
+						visibilityImageZoom(false);
+						visibilityDG(false);
+						visibilityLink(false);
+						visibilityIFrame(true);
+						visibilityBtnOpenWindow(true);
+						
+						iframe.source = item.ruta;
+						
+						
+						//ventana nueva
+						changeStyleBtnOpenWindow();
+							
+					}else if(item.tipoarchivo=="imagen" || item.tipoarchivo=="swf"){
+						
+						visibilityMPlayer(false);
+						visibilityDG(false);
+						visibilityLink(false);
+						visibilityIFrame(false);
+						visibilityImageZoom(true);
+						
+						
+						// Si es una imagen cargarla al zoomContainer
+						zoom.value = 1;
+						zoomComponent.source = item.ruta; //ruta						
+						zoomComponent.rotateImage(0); //posicion original
+						
+						
+						if(item.tipoarchivo=="imagen"){
+							visibilityBtnOpenWindow(true);
+						}else{
+							visibilityBtnOpenWindow(false); // si es un swf NO mostrar boton de abrir en ventana nueva
+						}
+						
+						// ventana nueva
+						changeStyleBtnOpenWindow();
+					}else{
+						loader.msgAviso("Tipo de archivo desconocido: ["+item.tipoarchivo+"]",3);
+					}
+					txtDescripcion.text = item.descripcion;	
+				}catch(ex:Error){
+					loader.msgAviso("Error->cargaItem",3,ex);	
+				}
+			}
+			
+			
+			
+			public function changeStyleBtnOpenWindow(_item:Object=null):void{
+				if(_item==null){
+					// Nueva Ventana
+					btnOpenWindow.toolTip = "Abrir en Ventana Nueva";
+					btnOpenWindow.setStyle("icon", Iconos.WINDOWS16);
+				}else{
+					// Descarga 
+					btnOpenWindow.toolTip = "Descargar archivo: [" + nombreoriginal + "] [" + tamanioarchivo + "]";
+					btnOpenWindow.setStyle("icon", Utils.getDownloadIconByExtension(_item.extension));
+				}	
+			}
+			
+			
+			// Evento click en el grid
+			public function DGOpenLink():void{
+				if(DG.selectedItem){
+					linkToOpen = DG.selectedItem.ruta;
+					openLink();
+				}	
+			}
+			
+			
+			// Descarga ó abre en Ventana Nueva el archivo seleccionado
+			private function openLink():void{
+				var u:URLRequest = new URLRequest(linkToOpen);				
+				navigateToURL(u,"_blank");
+			}
+			
+			
+			
+			
+			// Visibility
+			private function visibilityImageZoom(_visible:Boolean):void{
+				contenedorBotones.visible = _visible;
+				contenedorBotones.includeInLayout = _visible;
+				zoomComponent.visible = _visible;
+				vbZoom.visible = _visible;				
+			}
+			
+			private function visibilityLink(_visible:Boolean):void{
+				hbxLink.visible = _visible;
+			}
+			
+			private function visibilityMPlayer(_visible:Boolean):void{
+				flash.media.SoundMixer.stopAll();
+				mplayer.visible = _visible;
+			}
+			
+			private function visibilityIFrame(_visible:Boolean):void{
+				iframe.visible = _visible;
+			}
+			
+			private function visibilityDG(_visible:Boolean):void{
+				contenedorDG.visible = _visible;
+				if(_visible){
+					DG.dataProvider = arrArchivos;
+				}
+			}
+			
+			private function visibilityBtnOpenWindow(_visible:Boolean):void{
+				btnOpenWindow.visible = _visible;
+				btnOpenWindow.includeInLayout = _visible;
+			}
+			
+			
+			
+			private function vistaGrid():void{
+				if(contenedorDG.visible){
+					visibilityDG(false);	
+				}else{
+					visibilityIFrame(false);
+					visibilityMPlayer(false);
+					visibilityImageZoom(false);
+					visibilityLink(false);
+					visibilityDG(true);
+				}
+			}
+			
+			
+			private function changeLayoutVertical():void{
+				var n:int = 0;
+				var i:int = 0;
+				
+				if(chbLayoutVertical.selected){
+					contenedorArchivos.visible = false;
+					contenedorArchivos.includeInLayout = false;
+					
+					contenedorArchivosVertical.visible = true;
+					contenedorArchivosVertical.includeInLayout = true;
+					contenedorArchivosVertical.width = thumbSize + 32;
+					
+					n = contenedorArchivos.numChildren;
+					for(i=0; i<n; i++){
+						contenedorArchivosVertical.addChild(contenedorArchivos.getChildAt(0));	
+					}
+					
+				}else{
+					contenedorArchivos.visible = true;
+					contenedorArchivos.includeInLayout = true;
+					
+					contenedorArchivosVertical.visible = false;
+					contenedorArchivosVertical.includeInLayout = false;
+					contenedorArchivosVertical.width = 0;
+					
+					n = contenedorArchivosVertical.numChildren;
+					for(i=0; i<n; i++){
+						contenedorArchivos.addChild(contenedorArchivosVertical.getChildAt(0));	
+					}
+				}
+			}
+			
+			
+			public function getDownloadIconByExtension(ext:String):Class{
+				return Utils.getDownloadIconByExtension(ext);
+			}
+		]]>
+	</mx:Script>
+	
+
+    
+	<mx:VBox id="contenedor" verticalGap="0" width="100%" height="100%" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0" horizontalScrollPolicy="off" verticalScrollPolicy="off" >
+		<!-- Menu -->
+		<mx:HBox id="hbMenu" width="100%" horizontalAlign="right" styleName="fondoTitulos" cornerRadius="0" paddingBottom="3" paddingTop="3" >
+			<actionscripts:ResizableTextArea id="txtDescripcion"  autoResize="true" width="100%" fontStyle="italic" maxHeight="50" borderStyle="none" editable="false"  />
+			
+			<mx:HBox id="contenedorBotones" horizontalAlign="right" paddingBottom="0" paddingLeft="0" paddingRight="5" paddingTop="0">
+				<mx:Button styleName="ZoomOutButton" toolTip="Girar a la izquierda" click="{zoomComponent.rotateImage(-90)}" icon="{Iconos.UNDO16}"  width="32" useHandCursor="true" />
+				<mx:Button styleName="ZoomOutButton" toolTip="Girar a la derecha"   click="{zoomComponent.rotateImage(90)}" icon="{Iconos.REDO16}"  width="32" useHandCursor="true" />
+				<mx:Button styleName="ZoomOutButton" toolTip="Restaurar" click="{zoomComponent.reset();zoomComponent.rotateImage(0)}" icon="{Iconos.RESTORE16}"  width="32" useHandCursor="true" />
+				<mx:Button styleName="ZoomOutButton" toolTip="Acercar" click="{zoomComponent.zoomIn()}" icon="{Iconos.INCREASE_ZOOM16}"  width="32" useHandCursor="true" />
+				<mx:Button styleName="ZoomInButton" toolTip="Alejar" click="{ zoomComponent.zoomOut() }" icon="{Iconos.DECREASE_ZOOM16}" width="32" useHandCursor="true"/>					
+			</mx:HBox>
+			
+			<!--<mx:Button toolTip="Vista en Tabla" click="{vistaGrid()}" icon="{Iconos.TABLE16}" visible="false" includeInLayout="false" />-->
+			
+			<mx:Button id="btnOpenWindow" toolTip="Abrir en Ventana Nueva" click="{openLink()}" icon="{Iconos.WINDOWS16}" />			
+			<mx:CheckBox id="chbLayoutVertical" change="{changeLayoutVertical()}" visible="false" includeInLayout="false" />
+		</mx:HBox>
+		
+		
+		<mx:HBox id="hbxMiddle" horizontalGap="0" width="100%" height="100%" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0" horizontalScrollPolicy="off" verticalScrollPolicy="off">
+			<!-- LEFT -->
+			<mx:VBox id="contenedorArchivosVertical" styleName="fondoTitulos" verticalGap="10" horizontalAlign="center" 
+						verticalScrollPolicy="auto" horizontalScrollPolicy="off" paddingTop="8" paddingLeft="10" paddingRight="22" paddingBottom="10"  
+						height="{hbxMiddle.height}" cornerRadius="0" width="0"
+						 />
+			
+			
+			<!-- VIEWER -->
+			<mx:VBox width="100%" height="100%" verticalGap="0" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0" horizontalScrollPolicy="off" verticalScrollPolicy="off">
+				<mx:Canvas id="contViewer" backgroundColor="#FFFFFF" left="0" right="0" top="0" bottom="0" width="100%" height="100%">		
+			
+					<!-- Visor de Imagenes 36 -->		
+					<SuperPlayer:ImageZoom
+						id="zoomComponent" 
+						borderStyle="solid" width="100%" height="100%" 
+						fadeDuration="1000" 
+						x="0" y="0"
+						zoomIncrement="0.25" 
+						imageDoubleClickEnabled="true"
+						mouseWheelEnabled="true"
+						mouseFollow="true" />
+						
+					
+					
+						
+					<!-- Control de Zoom top 40-->
+					<mx:VBox id="vbZoom" right="20" top="20" styleName="fondoTitulos" cornerRadius="8" horizontalAlign="center">			
+						<mx:VSlider id="zoom" minimum=".1" maximum="5" value="1" change="{zoomComponent.zoom( zoom.value )}"  right="3" top="30" />
+					</mx:VBox>	
+					
+					
+					<!-- Botón de descarga de archivos tipo documento -->
+					<mx:HBox id="hbxLink" visible="false" width="100%" height="100%" x="0" y="36" horizontalAlign="center" verticalAlign="middle">
+						<mx:HBox styleName="fondoTitulos" horizontalAlign="center" paddingLeft="5" paddingRight="5" paddingBottom="5" paddingTop="5" backgroundAlpha="1" >
+							<mx:LinkButton id="lnkButton" label="Descargar Archivo: [{nombreoriginal}]" click="{openLink()}" />
+						</mx:HBox>
+					</mx:HBox>
+					
+					
+					
+					<!-- Player para Mp3, FLV y YouTube -->
+					<comps:multimediaContainer id="mplayer" loadOnInit="false" 
+						allowClose="false" allowDrag="false" allowMaximize="false" allowMinimize="false" allowResize="false" 
+						width="100%" height="100%" x="0" y="0" showTxtTitulo="false"
+						headerHeight="0" visible="false" includeInLayout="false" />
+					
+					
+					
+					<!-- IFrame para Links Externos -->
+					<SuperPlayer:IFrame id="iframe" width="100%" height="100%" x="0" y="0" visible="true" source="http://www.google.com" />
+					
+					
+					
+					<!-- Grid para en caso que sólo se hayan cargado archivos tipo de documento, es decir, donde el zoomContainer no es necesario -->
+					<mx:VBox id="contenedorDG" width="100%" height="100%" visible="false" includeInLayout="false" x="0" y="0" >
+						<mx:DataGrid id="DG" width="100%" height="100%" variableRowHeight="true">
+							<mx:columns>
+								<mx:DataGridColumn width="100" headerText="Archivo" dataField="nombreoriginal" />
+								<mx:DataGridColumn width="200" headerText="Descripción" dataField="descripcion" wordWrap="true" />
+								<mx:DataGridColumn dataField="" headerText="" width="30" >
+									<mx:itemRenderer>
+							 			<mx:Component>
+							 				<mx:HBox width="100%" height="100%" horizontalAlign="center" verticalAlign="middle" backgroundAlpha=".75">
+								 				<mx:LinkButton icon="{outerDocument.getDownloadIconByExtension(data.extension)}" toolTip="Descargar Archivo" click="{outerDocument.DGOpenLink()}" />
+											</mx:HBox>
+										</mx:Component>
+							 		</mx:itemRenderer>
+								</mx:DataGridColumn>	
+							</mx:columns>
+						</mx:DataGrid>
+					</mx:VBox>
+						
+					
+					<!-- Contenedor de archivos
+					<mx:VBox id="contenedorArchivosVertical" x="0" y="{hbMenu.height}" styleName="fondoTitulos" verticalGap="10" horizontalAlign="center" 
+						verticalScrollPolicy="auto" horizontalScrollPolicy="off" paddingTop="8" paddingLeft="10" paddingRight="10" paddingBottom="22" height="{contViewer.height - hbMenu.height}"
+						cornerRadius="0"
+						 />	 -->
+				</mx:Canvas>
+			</mx:VBox>
+	
+			<!-- RIGHT -->
+			<mx:VBox width="0" height="100%" styleName="fondoTitulos" cornerRadius="0" />	
+		</mx:HBox>
+		
+		
+		<!-- Contenedor de archivos -->
+		<mx:HBox id="contenedorArchivos" styleName="fondoTitulos" width="{contenedor.width - 1}" horizontalGap="10" horizontalAlign="center" 
+			horizontalScrollPolicy="auto" verticalScrollPolicy="off" paddingTop="8" paddingLeft="10" paddingRight="10" paddingBottom="22"
+			cornerRadius="0" 
+			 />
+	</mx:VBox>
+	
+		
+		
+</actionscripts:SuperPanel>

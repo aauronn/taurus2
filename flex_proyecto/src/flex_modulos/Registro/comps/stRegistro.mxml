@@ -1,0 +1,701 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				layout="vertical" width="1000" height="550"
+				creationComplete="init(event)" 
+				alpha="1.0" title="Proyectos" headerHeight="0"
+				backgroundColor="#FFFFFF" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" borderStyle="none" 
+				styleName="catalogPanel" backgroundAlpha="1.0">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Utils;
+			
+			import components.SuperGrid.SuperGrid;
+			import components.SuperGrid.contenedorSt;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.StringUtil;
+			
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padreContenedor:contenedorSt;
+			[Bindable] public var _padreSuperGrid:SuperGrid;
+			
+			[Bindable] public var s1:String;
+			[Bindable] public var s2:String;
+			[Bindable] public var s3:String;
+			[Bindable] public var s4:String;
+			[Bindable] public var validado:String;
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+					_padreContenedor.allowMaximize=false;
+					_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					
+					
+					//ws_traerContactos.send();
+					
+					if(strAccion=="NUEVO"){
+						
+						
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						seleccionaSesion1(item.s1);
+						seleccionaSesion2(item.s2);
+						seleccionaSesion3(item.s3);
+						seleccionaSesion4(item.s4);
+						s1 = item.s1;
+						s2 = item.s2;
+						s3 = item.s3;
+						s4 = item.s4;
+						
+						if(item.validado=="s"){
+							ckbValidado.selected=true;
+						}
+						else{
+							ckbValidado.selected=false;
+						}
+					}	
+					//Alert.show(generarClaveProyecto());
+					// Quitamos Loader
+					loader.dp.removeLoader();
+				}catch(ex:Error){
+					loader.msgAviso("stciudades->init() ",3,ex);
+					// Quitamos Loader
+					loader.dp.removeLoader();
+				}
+			}
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//arrFamilias.source = Utils.clone(loader.dp.arrFamilias.source);		
+					/*	
+					// Ciudades
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrCiudades),new ObjectProxy({clave_ciudad:'',ciudad:'Sin Seleccionar'}));
+					arr1.refresh();
+					cbxCiudad.dataProvider = arr1;	
+					cbxCiudad.labelField = "ciudad";
+					*/	
+				if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+					cambiaRegistro();
+					
+				}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+			
+			// Quitamos Loader
+			loader.dp.removeLoader();
+			
+			
+			//Remover listener de dataproviders
+			evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			public function cerrar():void{
+				_padreContenedor.cerrar();
+			}
+			
+			public function cambiaRegistro():void{
+				huboCambios = false;
+				// Buscar Ciudad
+				//	DataProviders.selectedIndexCombo(cbxCiudad,'clave_ciudad',item.clave_ciudad);
+				
+				
+				huboCambios=false;
+				
+			}
+			
+			
+			
+			/********** VALIDA Y GUARDA **********/
+			public function validar():void{
+				var errores:String="";				
+				//if(StringUtil.trim(txtClaveCiudad.text)==""){      errores+="- Ingrese la clave.\n"; }
+				//if(cbxEntidadFederativa.selectedIndex<=0){      errores+="- Ingrese el Estado.\n"; }
+				//if(cbxLocalidad.selectedIndex<0&&cbxLocalidad.selectedItem.nombrelocalidad.toString()!='Sin Seleccionar'){      errores+="- Ingrese el municipio.\n"; }
+				//if(StringUtil.trim(txtNombreCiudad.text)==""){ errores+="- Ingrese el nombre de la Localidad.\n"; }
+				//if(StringUtil.trim(txtDirectorlocalidad.text)==""){ errores+="- Ingrese el nombre del director de Ciudad.\n"; }
+				if(strAccion=="NUEVO"){
+					//strBitacoraSerializado = Serializer.serialize(ACBitacora.source);
+				}
+				if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+					if(ckbValidado.selected==true){
+						validado="s";
+					}
+				}
+				
+				if(errores==""){
+					guardar();					
+				}else{	
+					loader.msgAviso(errores,2);
+				}
+				
+			}
+			
+			private function guardar():void{
+				if(strAccion=="NUEVO" || strAccion=="COPIAR")  loader.dp.cargaService(ws_nuevo_registro);
+				if(strAccion=="EDITAR") loader.dp.cargaService(ws_edita_registro);
+				
+			}
+			/********** VALIDA Y GUARDA **********/
+			
+			
+			
+			
+			
+			
+			
+			/******** RESULT HANDLERS *********/
+			public function resultGuardar(event:ResultEvent):void{
+				this.parentApplication.enabled=true;
+				var tipo:String    = (strAccion=="NUEVO" || strAccion=="COPIAR") ? "guardada"        : "editada";
+				var ws:HTTPService = (strAccion=="NUEVO" || strAccion=="COPIAR") ? ws_nuevo_registro : ws_edita_registro;
+				
+				switch(StringUtil.trim(event.result.toString())){
+					case "ok":
+						huboCambios = false;
+						loader.msgAviso("El Proyecto fue "+tipo+" correctamente.");
+						//loader.dp.hacerWS(['ciudades'],true);
+						_padreSuperGrid.buscaRespuestas();
+						cerrar();						
+						break;
+					
+					case "yaexiste":
+						loader.msgAviso("El Proyecto ya existe",2);
+						break;
+					
+					default:
+						if(loader.debug){
+							loader.msgAviso(StringUtil.trim(event.result.toString()),3);	
+						}else{
+							loader.dp.reintentarHttpService("Ocurrió un problema al realizar la operación",ws,event);
+						}
+				}
+				
+			}
+			/******** RESULT HANDLERS *********/
+			
+			//Parte 1
+			protected function rdb1s1_clickHandler(event:MouseEvent):void
+			{s1 = "a1";}
+			
+			protected function rdb2s1_clickHandler(event:MouseEvent):void
+			{s1 = "p1";}
+			
+			protected function rdb3s1_clickHandler(event:MouseEvent):void
+			{s1 = "st1"}
+			
+			protected function rdb5s1_clickHandler(event:MouseEvent):void
+			{s1 = "c1"}
+			
+			protected function rdb4s1_clickHandler(event:MouseEvent):void
+			{s1 = "st1"}
+			
+			//Parte 2
+			protected function rdb1s2_clickHandler(event:MouseEvent):void
+			{s2 = "a2"}
+			
+			protected function rdb2s2_clickHandler(event:MouseEvent):void
+			{s2 = "p2"}
+			
+			protected function rdb3s2_clickHandler(event:MouseEvent):void
+			{s2 = "st2"}
+			
+			protected function rdb5s2_clickHandler(event:MouseEvent):void
+			{s2 = "c2"}
+			
+			//Parte 3
+			protected function rdb1s3_clickHandler(event:MouseEvent):void
+			{s3 = "a3"}
+			
+			protected function rdb2s3_clickHandler(event:MouseEvent):void
+			{s3 = "p3"}
+			
+			protected function rdb3s3_clickHandler(event:MouseEvent):void
+			{s3 = "st3"}
+			
+			protected function rdb5s3_clickHandler(event:MouseEvent):void
+			{s3 = "c3"}
+			
+			//Parte 4
+			protected function rdb1s4_clickHandler(event:MouseEvent):void
+			{s4 = "a4"}
+			
+			protected function rdb2s4_clickHandler(event:MouseEvent):void
+			{s4 = "p4"}
+			
+			protected function rdb3s4_clickHandler(event:MouseEvent):void
+			{s4 = "st4"}
+			
+			protected function rdb5s4_clickHandler(event:MouseEvent):void
+			{s4 = "c4"}
+			
+			protected function rdb4s4_clickHandler(event:MouseEvent):void
+			{s4 = "st4"; }
+			
+			protected function seleccionaSesion1(texto:String):void{
+				switch (texto)
+				{
+					case "a1":
+						rdb1s1.selected=true;
+						break;
+					case "p1":
+						rdb2s1.selected=true;
+						break;
+					case "st1":
+						rdb3s1.selected=true;
+						break;
+					case "c1":
+						rdb4s1.selected=true;
+						break;
+				}
+			}
+			protected function seleccionaSesion2(texto:String):void{
+				switch (texto)
+				{
+					case "a2":
+						rdb1s2.selected=true;
+						break;
+					case "p2":
+						rdb2s2.selected=true;
+						break;
+					case "st2":
+						rdb3s2.selected=true;
+						break;
+					case "c2":
+						rdb5s2.selected=true;
+						break;
+				}
+			}
+			protected function seleccionaSesion3(texto:String):void{
+				switch (texto)
+				{
+					case "a3":
+						rdb1s3.selected=true;
+						break;
+					case "p3":
+						rdb2s3.selected=true;
+						break;
+					case "st3":
+						rdb3s3.selected=true;
+						break;
+					case "c3":
+						rdb5s3.selected=true;
+						break;
+				}
+			}
+			protected function seleccionaSesion4(texto:String):void{
+				switch (texto)
+				{
+					case "a4":
+						rdb1s4.selected=true;
+						break;
+					case "p4":
+						rdb2s4.selected=true;
+						break;
+					case "st4":
+						rdb3s4.selected=true;
+						break;
+					case "c4":
+						rdb5s4.selected=true;
+						break;
+				}
+			}
+			
+			protected function ckbValidado_changeHandler(event:Event):void
+			{
+				if(ckbValidado.selected==true){
+					validado="s";
+				}
+				else{
+					validado="n";
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- CONTENEDOR -->
+	<mx:HBox width="100%" height="100%" verticalScrollPolicy="off" >
+		<mx:VBox id="vboxContenedorForma" width="100%" height="100%" horizontalAlign="center">
+			
+			
+			<mx:Form width="100%" verticalGap="10" verticalScrollPolicy="off" >
+				<mx:HBox styleName="fondoTitulos" width="100%">
+					<mx:FormHeading label="Información Personal" fontWeight="bold" styleName="textTitulos"/>
+				</mx:HBox>
+				<mx:HBox width="100%">
+					<mx:VBox width="100%"  verticalGap="10">
+						<mx:HBox width="100%">
+							<mx:FormItem labelWidth="120" label="Nombre:" width="100%" required="true">
+								<mx:TextInput tabIndex="1" id="txtNombre" text="{item.nombre}"   name="Nombre" width="270" 
+											  restrict="{Utils.restringir('LETRAS,ACENTOS')}"  maxChars="250" />
+							</mx:FormItem>
+							<mx:FormItem labelWidth="120" label="Segundo Nombre:" width="100%">
+								<mx:TextInput tabIndex="1" id="txtSegundoNombre" text="{item.snombre}"   name="Nombre" width="270" 
+											  restrict="{Utils.restringir('LETRAS,ACENTOS')}"  maxChars="250" />
+							</mx:FormItem>
+						</mx:HBox>
+						<mx:HBox width="100%">
+							<mx:FormItem labelWidth="120" label="Apellido Paterno:" width="100%" required="true">
+								<mx:TextInput tabIndex="1" id="txtApaterno" text="{item.apaterno}"   name="Apellido Paterno"  
+											  restrict="{Utils.restringir('LETRAS,ACENTOS')}" width="270"  maxChars="250" />
+							</mx:FormItem>
+							<mx:FormItem labelWidth="120" label="Apellido Materno:" width="100%">
+								<mx:TextInput id="txtAmaterno" tabIndex="1" text="{item.amaterno}" name="Apellido Materno"  
+											  restrict="{Utils.restringir('LETRAS,ACENTOS')}" width="270"  maxChars="250" />
+							</mx:FormItem>
+						</mx:HBox>
+						<mx:HBox width="100%">
+							<mx:FormItem labelWidth="120" label="Puesto:" width="100%">
+								<mx:TextInput id="txtPuesto" tabIndex="1" text="{item.puesto}" name="Apellido Materno"  
+											  restrict="{Utils.restringir('LETRAS,ACENTOS')}" width="270"  maxChars="250" />
+							</mx:FormItem>
+							<mx:FormItem label="Correo Electronico:" width="100%" labelWidth="120" required="true">
+								<mx:TextInput id="txtCorreo" tabIndex="1" name="Correo Electronico" text="{item.correo}" width="270" maxChars="250" />
+							</mx:FormItem>
+						</mx:HBox>
+						
+						<mx:HBox width="100%">
+							<mx:FormItem label="Empresa:" width="100%" labelWidth="120" required="true">
+								<mx:TextInput id="txtEmpresa" tabIndex="1" name="Empresa" text="{item.empresa}" width="270" maxChars="250" />
+							</mx:FormItem>
+							<mx:FormItem label="Departamento:" width="100%" labelWidth="120">
+								<mx:TextInput id="txtDepartamento" tabIndex="1" name="Departamento" text="{item.departamento}" width="270"  maxChars="250" />
+							</mx:FormItem>
+						</mx:HBox>
+						
+						<mx:HBox width="100%">
+							<mx:FormItem label="Telefono:" width="100%" labelWidth="120" required="true">
+								<mx:TextInput id="txtTelefono" tabIndex="1"  name="Telefono" text="{item.telefono}" width="270"  maxChars="10"  />
+							</mx:FormItem>
+						</mx:HBox>
+						
+						<mx:HBox width="100%">
+							<mx:FormItem label="Calle y Número:" width="100%" labelWidth="120" required="true">
+								<mx:TextInput id="txtCalleNumero" tabIndex="1"  name="direccion_1" text="{item.direccion_1}" width="270"  maxChars="10"  />
+							</mx:FormItem>
+							<mx:FormItem label="Colonia:" width="100%" labelWidth="120">
+								<mx:TextInput id="txtColonia" tabIndex="1"  name="direccion_2" text="{item.direccion_2}" width="270"  maxChars="10"  />
+							</mx:FormItem>
+						</mx:HBox>
+						
+						<mx:HBox width="100%">
+							<mx:FormItem labelWidth="120" label="Ciudad:" width="100%" id="fiCiudad" required="true">
+								<mx:TextInput id="txtciudad" tabIndex="1"  name="Ciudad" text="{item.ciudad}" width="270" maxChars="250" />
+							</mx:FormItem>
+							<mx:FormItem labelWidth="120" label="Estado:" width="100%" required="true">
+								<mx:ComboBox id="cbxEstado" tabIndex="1" name="Estado" dataProvider="{arrEstados}" prompt="SIN SELECCIONAR" width="270"/>
+							</mx:FormItem>
+						</mx:HBox>
+						
+						<mx:HBox styleName="fondoTitulos" width="100%">
+							<mx:FormHeading label="Sesiones" fontWeight="bold" styleName="textTitulos"/>
+						</mx:HBox>
+						<mx:HRule width="100%" height="3"/>
+						<mx:Grid id="gridSesiones" borderStyle="solid" width="100%">
+							<mx:GridRow id="row0" width="100%">
+								<mx:GridItem id="cell00" >
+									
+								</mx:GridItem>
+								<mx:GridItem id="cell01" >
+									<mx:Label text="ARQUITECTURA" fontWeight="bold"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell02">
+									<mx:Label text="POTENCIA" fontWeight="bold"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell03">
+									<mx:Label text="SESIONES TÉCNICAS" fontWeight="bold"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell04">
+									<mx:Label text="COMPONENTES" fontWeight="bold"/>
+								</mx:GridItem>
+							</mx:GridRow>
+							
+							<!--Primera Session 1/2-->
+							<mx:GridRow id="row1" width="100%" styleName="row1">
+								<mx:GridItem id="cell10" height="20">
+									<mx:Label text="08:30 - 09:30"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell11" rowSpan="2" verticalAlign="middle" >
+									<mx:RadioButton groupName="rbgPrimeraSesion" id="rdb1s1" label="El Valor de la Arquitectura Integrada con los Nuevos Controladores CompaqLogix" width="180" click="rdb1s1_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell12" rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgPrimeraSesion" id="rdb2s1" label="Buenas Prácticas para la Instalación de Variadores de Frecuencia" width="180" click="rdb2s1_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell13" >
+									<mx:RadioButton groupName="rbgPrimeraSesion" id="rdb3s1" label="PANDUIT" width="200" click="rdb3s1_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell14"  rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgPrimeraSesion" id="rdb5s1" label="Taller de Tecnología de Sensado" width="180" click="rdb5s1_clickHandler(event)"/>
+									
+								</mx:GridItem>
+							</mx:GridRow>
+							
+							<!--Primera Session 2/2-->
+							<mx:GridRow id="row2" width="100%" styleName="row1">
+								<mx:GridItem id="cell20" height="20">
+									<mx:Label text="09:30 - 10:30" />
+								</mx:GridItem>
+								
+								<mx:GridItem id="cell23">
+									<mx:RadioButton groupName="rbgPrimeraSesion" id="rdb4s1" label="Soluciones para la industria del agua" width="180" click="rdb4s1_clickHandler(event)"/>
+								</mx:GridItem>
+								
+								
+							</mx:GridRow>
+							
+							<!--CAFE-->
+							<mx:GridRow id="row3" width="100%">
+								<mx:GridItem id="cell30" >
+									<mx:Label text="10:30 - 10:45"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell31"  colSpan="4" horizontalAlign="center" borderStyle="solid">
+									<mx:Label text="Receso de Café"/>
+								</mx:GridItem>
+								
+							</mx:GridRow>
+							
+							<!--Segunda Parte 1/2-->
+							<mx:GridRow id="row4" width="100%">
+								<mx:GridItem id="cell40" height="20">
+									<mx:Label text="10:45 - 11:45"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell41" rowSpan="2" verticalAlign="middle" >
+									<mx:RadioButton groupName="rbgSegundaSesion" id="rdb1s2" label="Nueva Plataforma de visualización (HMI) Panel view plus 6 y el uso del software FactoryTalk ViewME v6.1" width="180" click="rdb1s2_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell42" rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgSegundaSesion" id="rdb2s2" label="Centro de Control de Motores Inteligentes y Arrancadores de Estado Sólido" width="180" click="rdb2s2_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell43" rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgSegundaSesion" id="rdb3s2" label="Migraciones de Sistemas" width="200" click="rdb3s2_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell44"  rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgSegundaSesion" id="rdb5s2" label="Nueva Generación de Controladores Micro 800" width="180" click="rdb5s2_clickHandler(event)"/>
+								</mx:GridItem>
+							</mx:GridRow>
+							
+							<!--Segunda Parte 2/2-->
+							<mx:GridRow id="row5" width="100%">
+								<mx:GridItem id="cell50" >
+									<mx:Label text="11:45 - 12:45"/>
+								</mx:GridItem>
+								
+							</mx:GridRow>
+							
+							<!--COMIDA-->
+							<mx:GridRow id="row6" width="100%">
+								<mx:GridItem id="cell60" >
+									<mx:Label text="12:45 - 14:00"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell61"  colSpan="4" horizontalAlign="center" borderStyle="solid">
+									<mx:Label text="Comida"/>
+								</mx:GridItem>
+								
+							</mx:GridRow>
+							
+							<!--Tercera Parte 1/2-->
+							<mx:GridRow id="row7" width="100%">
+								<mx:GridItem id="cell70" height="20">
+									<mx:Label text="14:00 - 15:00"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell71" rowSpan="2" verticalAlign="middle" >
+									<mx:RadioButton groupName="rbgTerceraSesion" id="rdb1s3" label="Tecnologías para Automatización Total de Planta: PlantPAx (Manejo de Activos, Soluciones de Información, Soluciones de Proceso)" width="180" click="rdb1s3_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell72" rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgTerceraSesion" id="rdb2s3" label="Revisión del Control de Armónicos, Factor de Potencia, Distorsión y Desplazamiento" width="180" click="rdb2s3_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell73" rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgTerceraSesion" id="rdb3s3" label="Soluciones para el Monitoreo de Condiciones (Dynamix)" width="200" click="rdb3s3_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell74"  rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgTerceraSesion" id="rdb5s3" label="Tecnologías de Seguridad Aplicada en Maquinarias con Conexión para un Circuito de Seguridad" width="180" click="rdb5s3_clickHandler(event)"/>
+								</mx:GridItem>
+							</mx:GridRow>
+							
+							<!--Tercera Parte 2/2-->
+							<mx:GridRow id="row8" width="100%">
+								<mx:GridItem id="cell80" >
+									<mx:Label text="15:00 - 16:00"/>
+								</mx:GridItem>
+								
+							</mx:GridRow>
+							
+							<!--CAFE 2-->
+							<mx:GridRow id="row9" width="100%">
+								<mx:GridItem id="cell90" >
+									<mx:Label text="16:00 - 16:15"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell91"  colSpan="4" horizontalAlign="center" borderStyle="solid">
+									<mx:Label text="RECESO DE CAFÉ"/>
+								</mx:GridItem>
+								
+							</mx:GridRow>
+							
+							<!--Cuarta Parte 1/2-->
+							<mx:GridRow id="row10" width="100%">
+								<mx:GridItem id="cell100" height="20">
+									<mx:Label text="16:15 - 17:15"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell101" rowSpan="2" verticalAlign="middle" >
+									<mx:RadioButton groupName="rbgCuartaSesion" id="rdb1s4" label="Soluciones de Software para la Inteligencia en la Manufactura" width="180" click="rdb1s4_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell102" rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgCuartaSesion" id="rdb2s4" label="Soluciones con Variadores de Velocidad Power Flex" width="180" click="rdb2s4_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell103" >
+									<mx:RadioButton groupName="rbgCuartaSesion" id="rdb3s4" label="Arquitectura Integrada; Oro en su Mina y en su Sistema de Control" width="200" click="rdb3s4_clickHandler(event)"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell104"  rowSpan="2" verticalAlign="middle">
+									<mx:RadioButton groupName="rbgCuartaSesion" id="rdb5s4" label="Componentes desde la Línea hasta la Carga (Line to Load)" width="180" click="rdb5s4_clickHandler(event)"/>
+								</mx:GridItem>
+							</mx:GridRow>
+							
+							<!--Cuarta Parte 2/2-->
+							<mx:GridRow id="row11" width="100%">
+								<mx:GridItem id="cell110" >
+									<mx:Label text="17:15 - 18:15"/>
+								</mx:GridItem>
+								<mx:GridItem id="cell113" >
+									<mx:RadioButton groupName="rbgCuartaSesion" id="rdb4s4" label="Calidad de Energía Eléctrica = Ahorro de Energía" width="200" click="rdb4s4_clickHandler(event)"/>
+								</mx:GridItem>
+							</mx:GridRow>
+						</mx:Grid>
+						<!--
+						<mx:FormItem width="100%">
+							<mx:HBox width="100%" horizontalAlign="right">
+								<mx:LinkButton label="Enviar" icon="{Iconos.FWD_GREEN16}" fontWeight="bold" fontSize="14" click="linkbutton1_clickHandler(event)"/>
+								<mx:LinkButton label="Cancelar" icon="{Iconos.REMOVE16}" fontWeight="bold" fontSize="14"/>
+							</mx:HBox>
+						</mx:FormItem>
+						-->
+						<mx:HRule width="100%" height="3"/>
+						<mx:HBox styleName="fondoTitulos" width="100%">
+							<mx:FormHeading label="Revision" fontWeight="bold" styleName="textTitulos"/>
+						</mx:HBox>
+						<mx:HBox width="100%">
+							<mx:FormItem width="100%" label="Validado:">
+								<mx:CheckBox id="ckbValidado" selected="false" change="ckbValidado_changeHandler(event)"/>
+							</mx:FormItem>
+							<mx:FormItem width="100%" label="Validado:">
+								<mx:Button id="btnEnviarCorreo" label="Enviar Correo" toolTip="Enviar Correo de Validacion de datos al Registrado"/>
+							</mx:FormItem>
+						</mx:HBox>
+						
+					</mx:VBox>
+				</mx:HBox>
+			</mx:Form>		
+		</mx:VBox>	
+	</mx:HBox>
+	
+	<fx:Declarations>
+		<mx:HTTPService showBusyCursor="true" id="ws_nuevo_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="http://taurusabsa.sytes.net/registroABSA/ws_registroTendencias.php">
+			<mx:request xmlns="">
+				<opcion>REGISTRO_UP</opcion>
+				<nombre>{txtNombre.text}</nombre>
+				<snombre>{txtSegundoNombre.text}</snombre> 
+				<apaterno>{txtApaterno.text}</apaterno> 
+				<amaterno>{txtAmaterno.text}</amaterno>
+				<puesto>{txtPuesto.text}</puesto>
+				<correo>{txtCorreo.text}</correo> 
+				<empresa>{txtEmpresa.text}</empresa> 
+				<departamento>{txtDepartamento.text}</departamento>
+				<telefono>{txtTelefono.text}</telefono>
+				<direccion_1>{txtCalleNumero.text}</direccion_1>
+				<direccion_2>{txtColonia.text}</direccion_2>
+				<ciudad>{txtciudad.text}</ciudad>
+				<estado>{cbxEstado.selectedItem.clave}</estado>
+				<s1>{s1}</s1>
+				<s2>{s2}</s2>
+				<s3>{s3}</s3>
+				<s4>{s4}</s4>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_edita_registro" method="POST" resultFormat="text" requestTimeout="60" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="http://taurusabsa.sytes.net/registroABSA/ws_registroTendencias.php" >
+			<mx:request>
+				<opcion>EDITAR_REGISTRO</opcion>
+				<idtendencia>{item.idtendencia}</idtendencia>
+				<nombre>{txtNombre.text}</nombre>
+				<snombre>{txtSegundoNombre.text}</snombre> 
+				<apaterno>{txtApaterno.text}</apaterno> 
+				<amaterno>{txtAmaterno.text}</amaterno>
+				<puesto>{txtPuesto.text}</puesto>
+				<correo>{txtCorreo.text}</correo> 
+				<empresa>{txtEmpresa.text}</empresa> 
+				<departamento>{txtDepartamento.text}</departamento>
+				<telefono>{txtTelefono.text}</telefono>
+				<direccion_1>{txtCalleNumero.text}</direccion_1>
+				<direccion_2>{txtColonia.text}</direccion_2>
+				<ciudad>{txtciudad.text}</ciudad>
+				<estado>{cbxEstado.selectedItem.clave}</estado>
+				<s1>{s1}</s1>
+				<s2>{s2}</s2>
+				<s3>{s3}</s3>
+				<s4>{s4}</s4>
+				<validado>{validado}</validado>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<fx:Array id="arrEstados">
+			<fx:Object  label="AGUASCALIENTES" clave="AS" />
+			<fx:Object  label="BAJA CALIFORNIA" clave="BC" />
+			<fx:Object  label="BAJA CALIFORNIA SUR" clave="BS" />
+			<fx:Object  label="CAMPECHE" clave="CC" />
+			<fx:Object  label="CHIAPAS" clave="CS" />
+			<fx:Object  label="CHIHUAHUA" clave="CH" />
+			<fx:Object  label="COAHUILA" clave="CL" />
+			<fx:Object  label="COLIMA" clave="CM" />
+			<fx:Object  label="DISTRITO FEDERAL" clave="DF" />
+			<fx:Object  label="DURANGO" clave="DG" />
+			<fx:Object  label="GUANAJUATO" clave="GT" />
+			<fx:Object  label="GUERRERO" clave="GR" />
+			<fx:Object  label="HIDALGO" clave="HG" />
+			<fx:Object  label="JALISCO" clave="JC" />
+			<fx:Object  label="MORELOS" clave="MS" />
+			<fx:Object  label="NAYARIT" clave="NT" />
+			<fx:Object  label="NUEVO LEON" clave="NL" />
+			<fx:Object  label="OAXACA" clave="OC" />
+			<fx:Object  label="PUEBLA" clave="PL" />
+			<fx:Object  label="QUERETARO" clave="QT" />
+			<fx:Object  label="QUINTANA ROO" clave="QR" />
+			<fx:Object  label="SAN LUIS POTOSI" clave="SP" />
+			<fx:Object  label="SINALOA" clave="SL" />
+			<fx:Object  label="SONORA" clave="SR" />
+			<fx:Object  label="TABASCO" clave="TC" />
+			<fx:Object  label="TAMAULIPAS" clave="TS" />
+			<fx:Object  label="TLAXCALA" clave="TL" />
+			<fx:Object  label="VERACRUZ" clave="VZ" />
+			<fx:Object  label="MEXICO" clave="MC" />
+			<fx:Object  label="MICHOACAN" clave="MN" />
+			<fx:Object  label="YUCATAN" clave="YN" />
+			<fx:Object  label="ZACATECAS" clave="ZS" />
+			<fx:Object  label="NACIDO EN EL EXTRANJERO" clave="NE" />
+		</fx:Array>	
+		
+		<s:RadioButtonGroup id="rbgPrimeraSesion" />
+		<s:RadioButtonGroup id="rbgSegundaSesion"/>
+		<s:RadioButtonGroup id="rbgTerceraSesion"/>
+		<s:RadioButtonGroup id="rbgCuartaSesion"/>
+		
+	</fx:Declarations>
+</mx:TitleWindow>

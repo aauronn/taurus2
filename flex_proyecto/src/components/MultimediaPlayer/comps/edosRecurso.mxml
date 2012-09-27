@@ -1,0 +1,763 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Panel paddingTop="5" paddingBottom="10" paddingLeft="10" paddingRight="10" styleName="panel" xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:asc="actionscripts.*" xmlns:comps="modulos.Recursos.Maestro.comps.*" width="100%" height="100%" title="Guardar" creationComplete="init()" layout="vertical">
+	<mx:Script>
+		<![CDATA[
+		
+			import actionscripts.uploadEvents;
+			import actionscripts.uploadFileClass;
+			import actionscripts.DataProviders;
+			import actionscripts.Iconos;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.utils.StringUtil;
+			import modulos.Recursos.Maestro.Recursos;
+			import mx.events.ValidationResultEvent;	
+			import mx.controls.ComboBase;
+			import mx.controls.Text;
+			import mx.controls.listClasses.ListBase;
+			import mx.core.Container;
+			import flash.net.FileReference;
+			import flash.net.URLRequest;
+			import flash.net.URLRequestMethod
+			import mx.events.ItemClickEvent;
+			import flash.events.Event;
+			import mx.controls.Alert;
+			import mx.managers.PopUpManager;
+			import mx.managers.ToolTipManager;
+			import actionscripts.Utils;
+			import mx.events.ValidationResultEvent;
+			import mx.validators.Validator;
+
+			private var clUploadFile:uploadFileClass;
+			private var filtroDocs:FileFilter = new FileFilter("Documentos Soportados", "*.flv;*.mp3;*.doc;*.docx;*.rtf;*.wps;*.pdf;*.xls;*.xlsx;*.ppt;*.pptx;*.pps;*.ppsx;*.jpg;*.jpeg;*.gif;*.png;*.bmp;*.txt;*.zip;*.rar;*.7z;"); //filtro de tipos
+			
+			private var arrValidator:Array;
+						
+			[Bindable]private var nombreArchivo:String="";
+			[Bindable]private var pathArchivo:String="";
+			[Bindable]private var horaInicial:String="";
+			[Bindable]private var horaFinal:String="";
+			[Bindable]private var txtCuentaArchivo:String="";
+			[Bindable]public var tipo_recurso:String="0";
+			[Bindable]public var urlRecurso:String="";
+			
+			[Bindable] public var item:Object;
+			
+			[Bindable]public var strAccion:String="";
+						
+			[Bindable]public var _recursos:Recursos;
+			
+			private function init():void{
+				this.title="Recurso ("+strAccion+")";
+				
+				//Datos para subir archivos
+				var request:URLRequest = new URLRequest();
+			    request.method = URLRequestMethod.POST;
+			    request.url = "http://"+Virtual.strHostUrl+"/tbrecursos_apoyo_ws.php";
+			    
+			    var variable:URLVariables= new URLVariables();
+			    variable.opcion="SUBIR_ARCHIVO";
+			    variable.idcurso=Virtual.strIDCurso;
+			    variable.strSSID=Virtual.strSSID;
+			        
+				if(strAccion=="Editar"){
+					item.@disp_siempre==1?chkDisp.selected=true:chkDisp.selected=false;
+					txtCuentaArchivo=item.@archivo
+					pathArchivo=item.@archivo;
+					urlRecurso=item.@url_recurso;
+					DataProviders.selectedIndexCombo(cbxEtiqueta,'idetiqueta_modulo',item.@idetiqueta_modulo);
+					
+					if(!chkDisp.selected){
+						var hInicial:String=item.@hora_inicial;
+						var hFinal:String=item.@hora_final;
+						cbxHoraInicial.selectedIndex=getTimeIndex(hInicial.split(":")[0],hInicial.split(":")[1]);
+						//Alert.show("hora final"+hFinal.split(":")[0]+hFinal.split(":")[1]);
+						cbxHoraFinal.selectedIndex=getTimeIndex(hFinal.split(":")[0],hFinal.split(":")[1]);
+						enableDisableVigencia();
+					}
+					if(item.@archivo!=""){
+						nombreArchivo=item.@archivo_nombreoriginal;
+						btnBorrarArchivo.visible=true;
+					}
+					else{
+						if(item.@url_recurso!=''){
+							rbDireccion.selected=true;
+							contAdjunto.enabled=false;
+							contDireccion.enabled=true;
+							strDireccionWeb.text=item.@url_recurso;
+						}
+						else{
+							rbArchivo.selected=true;
+							contAdjunto.enabled=true;
+							contDireccion.enabled=false;
+						}
+					}
+					
+					variable.archivo=txtCuentaArchivo;
+				}
+				
+				nsOrden.mx_internal::inputField.editable = false;
+				ToolTipManager.showDelay = 0;
+		       
+		       //Subir Archivo
+				request.data=variable;
+				clUploadFile=new uploadFileClass(DisplayObject(this.parentApplication));
+				clUploadFile.maxFileSize=Virtual.strFileSize;
+				clUploadFile.paramsUrl=request;
+				clUploadFile.filtroArchivos=filtroDocs;
+				clUploadFile.modalWindow=true;
+				clUploadFile.addEventListener(uploadEvents.UPLOADEVENT,manageUploadEvents); 
+			}
+			
+			private function manageUploadEvents(evt:uploadEvents):void{
+				if(evt.data.evento.type=='select'){
+					file_path.text = evt.data.nombrearchivo;
+					var fileDatos:Array=String(evt.data.nombrearchivo).split(".");
+					var extension:String=fileDatos.pop();
+					tipo_recurso=(extension.toLowerCase()=='flv'?'1':(extension.toLowerCase()=='mp3'?'2':'0'));
+				    nombreArchivo=evt.data.nombrearchivo;
+				    btnBorrarArchivo.visible=true;
+				}
+				else{
+					if(evt.data.evento.type=='uploadCompleteData'){
+
+						var arrPaths:Array=String(evt.data.evento.data).split('###');
+						if(tipo_recurso!='0'){	
+							urlRecurso=arrPaths[0];
+						}
+						pathArchivo=arrPaths[1];
+						if(strAccion=="Editar"){
+							Utils.checarSesion(editar_recursos_ws);
+							//editar_recursos_ws.send();	
+						}
+						else{
+							Utils.checarSesion(grabar_recursos_ws);
+							//grabar_recursos_ws.send();
+						}
+					}
+					else{//Bitacora
+						if(evt.data.evento.type=='complete'){
+							Utils.saveLogs({tipomovto:'upload', modulo:'recursos', claveusuario:Virtual.strClaveempleado, tipousuario:Virtual.strTipoUsuario, clavecurso:Virtual.strClaveCurso, claveescuela:Virtual.strClaveEscuela, eventotipo:evt.data.evento.type, nombrearchivo:evt.data.nombrearchivo, tamanioarchivo:evt.data.tamanioarchivo, totalsubido:evt.data.totalsubido, msg:"Archivo de "+txtTitulo.text});
+						}
+						else{
+							if(evt.data.evento.type=='cancelUpload'){
+								Utils.saveLogs({tipomovto:'upload', modulo:'recursos', claveusuario:Virtual.strClaveempleado, tipousuario:Virtual.strTipoUsuario, clavecurso:Virtual.strClaveCurso, claveescuela:Virtual.strClaveEscuela, eventotipo:evt.data.evento.type, nombrearchivo:evt.data.nombrearchivo, tamanioarchivo:evt.data.tamanioarchivo, totalsubido:evt.data.totalsubido, msg:"Archivo de "+txtTitulo.text});
+							}
+							else{
+								if(evt.data.evento.type=='ioerror'){
+									Utils.saveLogs({tipomovto:'upload', modulo:'recursos', claveusuario:Virtual.strClaveempleado, tipousuario:Virtual.strTipoUsuario, clavecurso:Virtual.strClaveCurso, claveescuela:Virtual.strClaveEscuela, eventotipo:evt.data.evento.type, nombrearchivo:evt.data.nombrearchivo, tamanioarchivo:evt.data.tamanioarchivo, totalsubido:evt.data.totalsubido, msg:"Archivo de "+txtTitulo.text});
+								}
+							}	
+						}
+					}	
+				}
+			}
+			
+			private function enableDisableVigencia():void{
+				contVigencia.enabled=!contVigencia.enabled
+				if(!contVigencia.enabled){
+					Utils.borrarInfo(contVigencia);
+				}	
+			}
+
+			private function borrarArchivo():void{
+				btnBorrarArchivo.visible=false;
+				nombreArchivo="";
+				pathArchivo="";
+				file_path.text="";
+			}
+			
+			private function initValidators():void{
+
+	            arrValidator = new Array();
+	            
+	            arrValidator.push(titulo_stringValidator);
+	            arrValidator.push(etiqueta_numberValidator);
+	            if(!chkDisp.selected){
+	            	arrValidator.push(fechaInicio_dateValidator);
+		            arrValidator.push(horaInicial_numberValidator);
+		            arrValidator.push(fechaFinal_dateValidator);
+		            arrValidator.push(horaFinal_numberValidator);
+	            }
+	            if(contDireccion.enabled){
+	            	arrValidator.push(siteValidator);
+	            }
+	            else{
+	            	//arrValidator.push(archivo_stringValidator);
+	            }
+	            
+	            guardar();
+			}	
+			
+			private function guardar():void{
+				var validatorErrorArray:Array = Validator.validateAll(arrValidator);				
+                var isValidForm:Boolean = validatorErrorArray.length == 0;
+               
+               if(dateInicial.text!="" && dateFinal.text!=""){
+	               if(Utils.compareDates(dateInicial,dateFinal)==-1){
+						isValidForm = false;
+	               }
+               }
+               
+               if((dateInicial.text!="" && dateFinal.text!="")&&(cbxHoraInicial.selectedIndex!=0 && cbxHoraFinal.selectedIndex!=0)){
+			 		if(dateInicial.text==dateFinal.text){
+  						if(cbxHoraInicial.selectedIndex>=cbxHoraFinal.selectedIndex){
+  							isValidForm = false;
+  						}   
+  					}
+               }   
+               
+                if (isValidForm) {
+            		if(strAccion=="Editar"){
+            			if(!chkDisp.selected){
+           					horaInicial=cbxHoraInicial.selectedItem.hours+":"+cbxHoraInicial.selectedItem.minutes;
+           					horaFinal=cbxHoraFinal.selectedItem.hours+":"+cbxHoraFinal.selectedItem.minutes;
+            			}
+            			if(file_path.text!=""){
+            				clUploadFile.uploadFile();
+            			}
+            			else{
+            				if(contDireccion.enabled){
+				            	urlRecurso=strDireccionWeb.text;
+				            	pathArchivo="";
+				            	nombreArchivo="";
+								if(strDireccionWeb.text.toLocaleLowerCase().substr(-3)=="flv" || strDireccionWeb.text.toLocaleLowerCase().indexOf("youtube")!= -1){	
+									tipo_recurso="1";		
+								}
+								else{
+									tipo_recurso="2";
+								}
+				            }
+				            Utils.checarSesion(editar_recursos_ws);
+            				//editar_recursos_ws.send();
+            			}
+            		}
+            		else{
+            			if(!chkDisp.selected){
+           					horaInicial=cbxHoraInicial.selectedItem.hours+":"+cbxHoraInicial.selectedItem.minutes;
+           					horaFinal=cbxHoraFinal.selectedItem.hours+":"+cbxHoraFinal.selectedItem.minutes;
+            			}
+            			if(file_path.text!=""){
+            				clUploadFile.uploadFile();
+            			}
+            			else{
+            				if(contDireccion.enabled){
+				            	urlRecurso=strDireccionWeb.text;
+				            	pathArchivo="";
+				            	nombreArchivo="";
+								if(strDireccionWeb.text.toLocaleLowerCase().substr(-3)=="flv" || strDireccionWeb.text.toLocaleLowerCase().indexOf("youtube")!= -1){	
+									tipo_recurso="1";		
+								}
+								else{
+									tipo_recurso="2";
+								}
+				            }
+				            Utils.checarSesion(grabar_recursos_ws);
+            				//grabar_recursos_ws.send();
+            			}	
+            		}
+                } 
+                else {
+                	var err:ValidationResultEvent;
+                    var errorMessageArray:Array = [];
+                	for each (err in validatorErrorArray) {
+                        var errField:String = err.currentTarget.source.name
+                        errorMessageArray.push(errField + ": " + err.message);
+                    }
+                    
+                    if(dateInicial.text!="" && dateFinal.text!=""){
+                    	if(Utils.compareDates(dateInicial,dateFinal)==-1){
+							this.dateInicial.errorString = "La fecha de inicio es mayor que la fecha de vencimiento.";
+							this.dateFinal.errorString = "La fecha de inicio es mayor que la fecha de vencimiento.";						
+							errorMessageArray.push("Fecha Inicial: " + this.dateInicial.errorString);
+							errorMessageArray.push("Fecha Final: " + this.dateFinal.errorString);
+						}	
+                    }
+                    
+                    if((dateInicial.text!="" && dateFinal.text!="")&&(cbxHoraInicial.selectedIndex!=0 && cbxHoraFinal.selectedIndex!=0)){
+				 		if(dateInicial.text==dateFinal.text){
+      						if(cbxHoraInicial.selectedIndex>=cbxHoraFinal.selectedIndex){
+      							this.cbxHoraInicial.errorString = " La Hora de inicio es mayor o igual que la Hora de vencimiento.";
+								this.cbxHoraFinal.errorString = " La Hora de inicio es mayor o igual que la Hora de vencimiento.";						
+								errorMessageArray.push("Hora Inicial: " + this.cbxHoraInicial.errorString);
+								errorMessageArray.push("Hora Final: " + this.cbxHoraFinal.errorString);
+      						}
+      					}
+                     }
+                    
+					Alert.okLabel="Aceptar";
+					Alert.buttonWidth = 80; 
+                    Alert.show(errorMessageArray.join("\n"), "Errores", Alert.OK,null,null,null,Alert.OK);
+                }
+			}
+			
+			private function validarFechas():void{
+				 if(dateInicial.text!="" && dateFinal.text!=""){
+                	if(Utils.compareDates(dateInicial,dateFinal)==-1){
+             			dateInicial.errorString="La fecha de inicio es mayor que la fecha de vencimiento.";  		
+             			dateFinal.errorString="La fecha de inicio es mayor que la fecha de vencimiento.";
+                	}
+                	else{
+                		dateInicial.errorString="";
+                		dateFinal.errorString="";
+                	}
+     			}
+     			validarHoras();   	
+			}
+			
+			private function validarHoras():void{
+				 if((dateInicial.text!="" && dateFinal.text!="")&&(cbxHoraInicial.selectedIndex!=0 && cbxHoraFinal.selectedIndex!=0)){
+				 	if(dateInicial.text==dateFinal.text){
+      					if(cbxHoraInicial.selectedIndex>=cbxHoraFinal.selectedIndex){
+      						cbxHoraInicial.errorString="La Hora de inicio es mayor o igual que la Hora de vencimiento.";  		
+             				cbxHoraFinal.errorString="La Hora de inicio es mayor o igual que la Hora de vencimiento.";
+      					}
+      					else{
+      						cbxHoraInicial.errorString="";
+      						cbxHoraFinal.errorString="";
+      					}
+      				}
+      				else{
+      					cbxHoraInicial.errorString="";
+      					cbxHoraFinal.errorString="";
+      				}
+     			}	
+			}
+			
+	        private function grabadoRecurso(event:ResultEvent):void{
+	        	Alert.buttonWidth=80;
+	        	this.parentApplication.enabled=true;
+	        	if(event.result.toString()=="ok"){
+ 					Alert.okLabel = "Aceptar";
+					Alert.show("Se grabó el recurso "+txtTitulo.text+" correctamente.","Aviso",Alert.OK,null,null,Iconos.ICON_OK);
+					_recursos.currentState="";
+				}
+				else{
+					if(event.result.toString()=="no"){
+						Alert.okLabel = "Aceptar";	
+						Alert.show("El recurso no se pudo guardar.","Error",Alert.OK,null,null,Iconos.ICON_ERROR);
+					}
+					else{
+						Alert.okLabel = "Aceptar";
+						Alert.show("DETALLE: "+event.result.toString(),"DBG",Alert.OK,null,null,Iconos.ICON_ERROR);
+					}
+				}
+
+	        }
+	        
+	        private function getTimeIndex(hours:int, minutes:int):int{
+				
+			   //Alert.show("Horas:"+hours+" minutos:"+minutes);				  
+			   var ret:int = -1;
+			   
+			   if(minutes >= 45){
+			      if(hours < 23){
+			         hours++;
+			         minutes = 0;
+			      }
+			      else{
+			         minutes = 30;
+			      }
+			   }
+			   else if(minutes < 15){
+			      minutes = 0;
+			   }
+			   else{
+			      minutes = 30;
+			   }
+			   
+			   var index:int = 0;
+			   //hours value between 0-23, minutes is either 0 or 30
+			   for each(var timeXML:XML in validTimesXML.time){
+			      var testHours:int = int(timeXML.hours.toString());
+			      var testMinutes:int = int(timeXML.minutes.toString());
+	
+			      if(hours == testHours && minutes == testMinutes){
+			         ret = index;
+			      }
+			      else
+			      {
+			         index++;
+			      }
+			   }
+			   //Alert.show(ret+""+hours+":"+minutes);
+			   return ret;
+			}
+			
+			private function valInformacion():void{
+				this.parentApplication.enabled=false;
+				this.stage.focus=null;
+				this.setFocus();
+			}
+			
+			private function enableDisableAdjuntos(evt:Event):void{
+				
+				if((evt.currentTarget as RadioButton).label=="Archivo"){
+					contAdjunto.enabled=true;
+					contDireccion.enabled=false;
+					Utils.borrarInfo(contDireccion);
+					callLater(strDireccionWeb.setDefaultText);
+					
+				}
+				else{
+					contDireccion.enabled=true;
+					contAdjunto.enabled=false;
+					Utils.borrarInfo(contAdjunto);
+					borrarArchivo();
+				}
+			}
+   			
+		]]>
+	</mx:Script>
+	<mx:HBox paddingLeft="2" paddingTop="2" paddingBottom="2" width="100%" id="toolbar" horizontalAlign="left" verticalAlign="top" >
+		<mx:LinkButton width="80" icon="{Iconos.ICON_SEARCH}" id="btnFiltrar"  label="Filtrar" enabled="false" buttonMode="{btnFiltrar.enabled}" alpha="{btnFiltrar.enabled?1:0.4}" />
+		<mx:LinkButton width="80" icon="{Iconos.ICON_NEW}" id="btnNuevo"  label="Nuevo"  enabled="false" buttonMode="{btnNuevo.enabled}" alpha="{btnNuevo.enabled?1:0.4}" />
+		<mx:LinkButton width="80" icon="{Iconos.ICON_EDIT}" id="btnEditar" label="Editar" enabled="false" buttonMode="{btnEditar.enabled}" alpha="{btnEditar.enabled?1:0.4}"/>
+		<mx:LinkButton width="88" icon="{Iconos.ICON_DELETE}"  id="btnBorrar" label="Eliminar" enabled="false" buttonMode="{btnBorrar.enabled}" alpha="{btnBorrar.enabled?1:0.4}"/>
+		<mx:LinkButton label="Grabar"  icon="{Iconos.ICON_SAVE}" id="btnGuardar" enabled="true" click="initValidators()" buttonMode="{btnGuardar.enabled}" alpha="{btnGuardar.enabled?1:0.4}"/>
+		<mx:LinkButton label="Regresar"  icon="{Iconos.ICON_BACK}" id="btnRegresar" enabled="true" click="_recursos.currentState=''" buttonMode="{btnRegresar.enabled}" alpha="{btnRegresar.enabled?1:0.4}"/>
+	</mx:HBox>	
+	<mx:Form width="100%" height="100%">
+		<mx:ApplicationControlBar styleName="apControlBar" height="20" width="100%" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0">
+			<mx:HBox width="100%" height="100%">
+				<mx:Label text="Datos Generales" fontWeight="bold" fontStyle="italic"/>
+			</mx:HBox>
+		</mx:ApplicationControlBar>
+		
+		<mx:FormItem required="true" label="Titulo" labelWidth="80" width="100%">
+			<mx:TextInput id="txtTitulo" width="100%" text="{item.@titulo}" name="Titulo" maxChars="250"/>
+		</mx:FormItem>
+		
+		<mx:FormItem label="Descripción" labelWidth="80" width="100%">
+			<mx:RichTextEditor id="txtDescripcion" width="100%" htmlText="{item.@descripcion}" name="Descripción"/>
+		</mx:FormItem>
+		
+		<mx:FormItem fontWeight="bold" required="true" label="Etiqueta" labelWidth="80" width="100%">					
+			<mx:ComboBox  id="cbxEtiqueta" maxWidth="150" minWidth="150" itemRenderer="mx.controls.Label" toolTip="{cbxEtiqueta.selectedItem.nombre_etiqueta}" name="Etiqueta" labelField="nombre_etiqueta" dataProvider="{_recursos.arrModulosIguales}"/>
+		</mx:FormItem>
+		
+		<mx:FormItem required="true" label="Orden" labelWidth="80" width="100%">
+			<mx:NumericStepper id="nsOrden" minimum="0" maximum="60" stepSize="1" value="{item.@orden}" name="Orden"/>
+		</mx:FormItem>
+		
+		<mx:ApplicationControlBar styleName="apControlBar" height="20" width="100%" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0">
+			<mx:HBox width="100%" height="100%">
+				<mx:Label text="Vigencia" fontWeight="bold" fontStyle="italic"/>
+			</mx:HBox>
+		</mx:ApplicationControlBar>
+		
+		<mx:FormItem label="Disp.Siempre" labelWidth="90" width="100%" name="Disponible Siempre">
+			<mx:CheckBox id="chkDisp" selected="true" change="enableDisableVigencia()"/>
+		</mx:FormItem>
+		
+		<mx:HBox paddingLeft="10" id="contVigencia" enabled="false">
+			<mx:Text text="Fecha Inicial"/>
+			<mx:DateField id="dateInicial" text="{item.@fecha_inicial}" change="validarFechas()" monthNames="[Enero,Febrero,Marzo,Abril,Mayo,Junio,Julio,Agosto,Septiembre,Octubre,Noviembre,Diciembre]" dayNames="[D,L,M,M,J,V,S]" formatString="DD/MM/YYYY" yearNavigationEnabled="true" showToday="true" height="20" name="Fecha Inicial"/>
+			<mx:Text text="Hora Inicial"/>
+			<mx:ComboBox id="cbxHoraInicial" dataProvider="{validTimesXML.time}" labelField="@label" name="Hora Inicial" change="callLater(validarHoras)"/>
+			
+			<mx:Text text="Fecha Final"/>
+			<mx:DateField id="dateFinal" text="{item.@fecha_final}" change="validarFechas()" monthNames="[Enero,Febrero,Marzo,Abril,Mayo,Junio,Julio,Agosto,Septiembre,Octubre,Noviembre,Diciembre]" dayNames="[D,L,M,M,J,V,S]" formatString="DD/MM/YYYY" yearNavigationEnabled="true" showToday="true" height="20" name="Fecha Final"/>
+			<mx:Text text="Hora Final"/>
+			<mx:ComboBox id="cbxHoraFinal" dataProvider="{validTimesXML.time}" labelField="@label" name="Hora Final" change="callLater(validarHoras)"/>
+					
+		</mx:HBox>
+		
+		<mx:ApplicationControlBar styleName="apControlBar" height="20" width="100%" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0">
+			<mx:HBox width="100%" height="100%">
+				<mx:Label text="Datos Adjuntos" fontWeight="bold" fontStyle="italic"/>
+			</mx:HBox>
+		</mx:ApplicationControlBar>
+		
+		<mx:HBox paddingLeft="10">
+			
+			<mx:VBox>
+			
+				<mx:HBox>
+					<mx:RadioButton change="enableDisableAdjuntos(event)"  id="rbArchivo" value="Archivo" label="Archivo" selected="true" />
+					<mx:RadioButton change="enableDisableAdjuntos(event)"  id="rbDireccion" value="Direccion" label="Dirección" />	
+				</mx:HBox>
+				
+				<mx:HBox>
+					<mx:HBox id="contAdjunto">
+						<mx:TextInput width="150" name="Archivo Adjunto" id="file_path" editable="false"/>
+						<mx:Button label="Examinar" click="{clUploadFile.browseFiles()}"/>
+						<mx:LinkButton visible="false" width="150" icon="{Iconos.ICON_DELETE}"  id="btnBorrarArchivo" label="{nombreArchivo}" click="borrarArchivo()"/>
+					</mx:HBox>
+					
+					<mx:HBox id="contDireccion" enabled="false">
+						<mx:Label text="Dirección" fontWeight="bold"/>
+						<asc:ClearTextInput id="strDireccionWeb" name="Dirección" width="320" defultText="Ejemplo:http://www.youtube.com/watch?v=fXq0H2Q2fvw"/>
+					</mx:HBox>
+				</mx:HBox>
+				
+					
+			</mx:VBox>
+			
+		</mx:HBox>
+		
+	</mx:Form>
+	
+
+	<mx:StringValidator id="titulo_stringValidator" source="{txtTitulo}" property="text" minLength="3" tooShortError="El Nombre debe ser de al menos 3 digitos." requiredFieldError="Este campo no puede quedar vacío." />
+	<mx:NumberValidator id="etiqueta_numberValidator" source="{cbxEtiqueta}" property="selectedIndex" minValue="1" lowerThanMinError="Selecciona una etiqueta por favor." trigger="{cbxEtiqueta}" triggerEvent="change"/>
+	<mx:DateValidator id="fechaInicio_dateValidator" source="{dateInicial}" property="text" inputFormat="dd/mm/yyyy" allowedFormatChars="*#~/" requiredFieldError="Este campo no puede quedar vacío" />
+	<mx:DateValidator id="fechaFinal_dateValidator" source="{dateFinal}" property="text" inputFormat="dd/mm/yyyy" allowedFormatChars="*#~/" requiredFieldError="Este campo no puede quedar vacío" />
+	<mx:NumberValidator id="horaInicial_numberValidator" source="{cbxHoraInicial}" property="selectedIndex" minValue="1" lowerThanMinError="Selecciona una hora por favor." trigger="{cbxHoraInicial}" triggerEvent="change"/>
+	<mx:NumberValidator id="horaFinal_numberValidator" source="{cbxHoraFinal}" property="selectedIndex" minValue="1" lowerThanMinError="Selecciona una hora por favor." trigger="{cbxHoraFinal}" triggerEvent="change"/>
+	<!--<mx:StringValidator id="archivo_stringValidator" source="{file_path}" property="text" minLength="3" tooShortError="Seleccione algun archivo." requiredFieldError="Este campo no puede quedar vacío." />-->
+	<comps:URLValidator id="siteValidator" source="{strDireccionWeb}" property="text" required="true" requiredFieldError="Este campo es requerido" trigger="{strDireccionWeb}" triggerEvent="valueCommit"/>
+	
+	<mx:XML id="validTimesXML">
+		<root>
+			<time label="SIN SELECCIONAR">
+				<hours></hours>
+				<minutes></minutes>
+			</time>
+			<time label="12:00 AM">
+				<hours>0</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="12:30 AM">
+				<hours>0</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="1:00 AM">
+				<hours>1</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="1:30 AM">
+				<hours>1</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="2:00 AM">
+				<hours>2</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="2:30 AM">
+				<hours>2</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="3:00 AM">
+				<hours>3</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="3:30 AM">
+				<hours>3</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="4:00 AM">
+				<hours>4</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="4:30 AM">
+				<hours>4</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="5:00 AM">
+				<hours>5</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="5:30 AM">
+				<hours>5</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="6:00 AM">
+				<hours>6</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="6:30 AM">
+				<hours>6</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="7:00 AM">
+				<hours>7</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="7:30 AM">
+				<hours>7</hours>
+				<minutes>30</minutes>
+			</time>		
+			<time label="8:00 AM">
+				<hours>8</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="8:30 AM">
+				<hours>8</hours>
+				<minutes>30</minutes>
+			</time>		
+			<time label="9:00 AM">
+				<hours>9</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="9:30 AM">
+				<hours>9</hours>
+				<minutes>30</minutes>
+			</time>		
+			<time label="10:00 AM">
+				<hours>10</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="10:30 AM">
+				<hours>10</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="11:00 AM">
+				<hours>11</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="11:30 AM">
+				<hours>11</hours>
+				<minutes>30</minutes>
+			</time>
+	
+			<time label="12:00 PM">
+				<hours>12</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="12:30 PM">
+				<hours>12</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="1:00 PM">
+				<hours>13</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="1:30 PM">
+				<hours>13</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="2:00 PM">
+				<hours>14</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="2:30 PM">
+				<hours>14</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="3:00 PM">
+				<hours>15</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="3:30 PM">
+				<hours>15</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="4:00 PM">
+				<hours>16</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="4:30 PM">
+				<hours>16</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="5:00 PM">
+				<hours>17</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="5:30 PM">
+				<hours>17</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="6:00 PM">
+				<hours>18</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="6:30 PM">
+				<hours>18</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="7:00 PM">
+				<hours>19</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="7:30 PM">
+				<hours>19</hours>
+				<minutes>30</minutes>
+			</time>		
+			<time label="8:00 PM">
+				<hours>20</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="8:30 PM">
+				<hours>20</hours>
+				<minutes>30</minutes>
+			</time>		
+			<time label="9:00 PM">
+				<hours>21</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="9:30 PM">
+				<hours>21</hours>
+				<minutes>30</minutes>
+			</time>		
+			<time label="10:00 PM">
+				<hours>22</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="10:30 PM">
+				<hours>22</hours>
+				<minutes>30</minutes>
+			</time>
+			<time label="11:00 PM">
+				<hours>23</hours>
+				<minutes>0</minutes>
+			</time>
+			<time label="11:30 PM">
+				<hours>23</hours>
+				<minutes>30</minutes>
+			</time>		
+		</root>
+	</mx:XML>
+	
+	
+	<mx:HTTPService requestTimeout="20" invoke="valInformacion()" showBusyCursor="true" id="grabar_recursos_ws" method="POST" resultFormat="text" fault="this.parentApplication.faultHandler(event)" result="grabadoRecurso(event);" url="http://{Virtual.strHostUrl}/tbrecursos_apoyo_ws.php">
+		<mx:request>
+			<opcion>GRABAR_RECURSO</opcion>
+			<clavecurso>{Virtual.strClaveCurso}</clavecurso>
+			<claveescuela>{Virtual.strClaveEscuela}</claveescuela>
+			<idcurso>{Virtual.strIDCurso}</idcurso>
+			<titulo>{StringUtil.trim(txtTitulo.text)}</titulo>
+			<descripcion>{txtDescripcion.htmlText}</descripcion>
+			<fecha_inicial>{dateInicial.text}</fecha_inicial>
+			<fecha_final>{dateFinal.text}</fecha_final>
+			<disp_siempre>{chkDisp.selected?1:0}</disp_siempre>
+			<hora_inicial>{horaInicial}</hora_inicial>
+			<hora_final>{horaFinal}</hora_final>
+			<path>{pathArchivo}</path>
+			<url_recurso>{urlRecurso}</url_recurso>
+			<tipo_recurso>{tipo_recurso}</tipo_recurso>
+			<archivo_nombreoriginal>{nombreArchivo}</archivo_nombreoriginal>
+			<orden>{nsOrden.value}</orden>
+			<idetiqueta>{cbxEtiqueta.selectedItem.idetiqueta}</idetiqueta>
+			<idetiqueta_modulo>{cbxEtiqueta.selectedItem.idetiqueta_modulo}</idetiqueta_modulo>
+		</mx:request>
+	</mx:HTTPService>
+	
+	<mx:HTTPService requestTimeout="20" invoke="valInformacion()" showBusyCursor="true" id="editar_recursos_ws" method="POST" resultFormat="text" fault="this.parentApplication.faultHandler(event)" result="grabadoRecurso(event);" url="http://{Virtual.strHostUrl}/tbrecursos_apoyo_ws.php">
+		<mx:request>
+			<opcion>EDITAR_RECURSO</opcion>
+			<clavecurso>{Virtual.strClaveCurso}</clavecurso>
+			<claveescuela>{Virtual.strClaveEscuela}</claveescuela>
+			<idcurso>{Virtual.strIDCurso}</idcurso>
+			<titulo>{StringUtil.trim(txtTitulo.text)}</titulo>
+			<descripcion>{txtDescripcion.htmlText}</descripcion>
+			<fecha_inicial>{dateInicial.text}</fecha_inicial>
+			<fecha_final>{dateFinal.text}</fecha_final>
+			<disp_siempre>{chkDisp.selected?1:0}</disp_siempre>
+			<hora_inicial>{horaInicial}</hora_inicial>
+			<hora_final>{horaFinal}</hora_final>
+			<path>{pathArchivo}</path>
+			<url_recurso>{urlRecurso}</url_recurso>
+			<tipo_recurso>{tipo_recurso}</tipo_recurso>
+			<archivo_nombreoriginal>{nombreArchivo}</archivo_nombreoriginal>
+			<orden>{nsOrden.value}</orden>
+			<idetiqueta>{cbxEtiqueta.selectedItem.idetiqueta}</idetiqueta>
+			<idetiqueta_modulo>{cbxEtiqueta.selectedItem.idetiqueta_modulo}</idetiqueta_modulo>
+			<idrecurso_apoyo>{item.@idrecurso}</idrecurso_apoyo>
+			<archivo>{txtCuentaArchivo}</archivo>
+		</mx:request>
+	</mx:HTTPService>
+	
+	
+</mx:Panel>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" 
+		  width="100%" height="100%" xmlns:components="components.*"
+		  creationComplete="init(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Iconos;
+			
+			import mx.events.FlexEvent;
+			import mx.events.ItemClickEvent;
+			
+			[Bindable] public var modulo:String="";
+			[Bindable] public var abc:String="abc";
+			
+			private function clickHandler(event:ItemClickEvent):void{	 
+				modulo = String(event.item.src);
+				loadUnloadModule(null);    	
+			}	
+			
+			public function loadUnloadModule(evt:DataProvidersEvent):void{
+				if(modulo != ""){					
+					mod.url = modulo.split("?").length>1?modulo+"&revision="+loader.strRevision:modulo+"?revision="+loader.strRevision;					
+				}
+				else{
+					mod.unloadModule();
+					mod.url = null;
+				}
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				generarMenu();
+			}
+			
+			private function generarMenu():void{
+				loader.dp.revisaPermisos(arrMenu); //REVISAR PERMISOS PARA REMOVER ITEMS DEL MENU, ETC
+				tbbCat.dataProvider = arrMenu;
+			}
+			
+			protected function i(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<mx:HBox width="100%" height="100%" horizontalAlign="center" paddingTop="3">			
+		<mx:VBox id="daVBox" width="99%" height="99%" paddingBottom="0">					
+			<mx:HBox id="contenedor" width="100%" height="100%" >				
+				<mx:Panel title="Seleccione Tipo Póliza" height="{mod.height - 1}" width="200" paddingTop="10" horizontalScrollPolicy="off"  paddingLeft="10">
+					<mx:LinkBar id="tbbCat" itemClick="{clickHandler(event)}"  direction="vertical" width="90%" height="100%" toolTipField="label" />
+				</mx:Panel>
+				<components:CustomModuleLoader id="mod" url="./flex_modulos/ExportarContpaq/PolizasDiario/PolizasDiario.swf" height="100%" width="100%"/>						
+			</mx:HBox>        	
+		</mx:VBox>
+	</mx:HBox>	
+	
+	<fx:Declarations>
+		<s:ArrayCollection id="arrMenu">
+			<!-- Polizas - Diario -->
+			<fx:Object src="./flex_modulos/ExportarContpaq/PolizasDiario/PolizasDiario.swf" 
+					   label="Pólizas - Diario" icon="{Iconos.COMPONENTS24}" />
+			
+			<!-- Polizas - Ingresos -->
+			<fx:Object src="./flex_modulos/ExportarContpaq/PolizasIngresos/PolizasIngresos.swf" 
+					   label="Pólizas - Ingresos" icon="{Iconos.COMPONENTS24}" /> 
+			
+			<!-- Polizas - Compras -->
+			<fx:Object src="./flex_modulos/ExportarContpaq/PolizasCompras/PolizasCompras.swf" 
+					   label="Pólizas - Compras" icon="{Iconos.COMPONENTS24}" />
+			
+			<!-- Actualizar Proveedores -->
+			<fx:Object src="./flex_modulos/ExportarContpaq/ActualizarProveedores/ActualizarProveedores.swf" 
+					   label="Actualizar Proveedores" icon="{Iconos.COMPONENTS24}" permiso = "actprovedores_consultar" />
+			
+		</s:ArrayCollection>
+	</fx:Declarations>
+</s:Module>

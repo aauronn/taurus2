@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" backgroundAlpha="1.0" color="#000000" cornerRadius="6" height="60" width="220" horizontalAlign="center" verticalAlign="middle" title="Cargando Datos...">
+	<mx:ProgressBar indeterminate="true" height="10" trackHeight="10" width="160"   label=" "/>
+	<!-- 
+	barColor="#C70025" rojo metrorrey
+	187e9f - azul
+	<?xml version="1.0" encoding="utf-8"?>
+	<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"  horizontalAlign="center" verticalAlign="middle" height="60" width="220">	
+	<mx:ProgressBar indeterminate="true" label=" Cargando Datos" textAlign="center" labelPlacement="bottom" width="200" />
+	</mx:VBox>
+	-->
+</mx:TitleWindow>

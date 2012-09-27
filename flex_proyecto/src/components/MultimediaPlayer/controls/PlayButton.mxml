@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+	<mx:ViewStack xmlns:mx="http://www.adobe.com/2006/mxml" 
+		buttonMode="true"
+		rollOver="handleRollOver(event)"
+		rollOut="handleRollOut(event)"
+		creationPolicy="all"
+		>
+
+	<mx:Script>
+		<![CDATA[
+		
+			import mx.core.BitmapAsset;
+			import actionscripts.Iconos;
+						
+			public static var PLAYING:String="playing";
+			public static var PAUSED:String="paused";
+			
+			public function setState(i_val:String):void{
+				if(i_val==PLAYING){
+					this.selectedIndex=1;	
+				}else{
+					this.selectedIndex=0;
+				}
+			}
+			
+			public function getState():String{
+				if(this.selectedIndex==1){
+					return PLAYING;
+				}
+				else{
+					return PAUSED;	
+				}
+			}
+			
+			
+			private function handleRollOver(event:Event):void{
+				play_button.source=Iconos.ICON_PLAY_OVER;
+				pause_button.source=Iconos.ICON_PAUSE_OVER;
+			}
+			
+			private function handleRollOut(event:Event):void{
+				play_button.source=Iconos.ICON_PLAY;
+				pause_button.source=Iconos.ICON_PAUSE;
+			}
+			
+		]]>
+	</mx:Script>
+
+	<mx:HBox>
+		<mx:Image id="play_button" source="{Iconos.ICON_PLAY}" />
+	</mx:HBox>
+	<mx:HBox>
+		<mx:Image id="pause_button" source="{Iconos.ICON_PAUSE}"  />
+	</mx:HBox>
+</mx:ViewStack>

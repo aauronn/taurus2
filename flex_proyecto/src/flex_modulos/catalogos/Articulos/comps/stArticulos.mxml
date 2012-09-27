@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" layout="vertical" width="100%" height="100%"
+				creationComplete="init(event)" 
+				alpha="1.0" title="Catálogo - Localidades" headerHeight="0"
+				backgroundColor="#FFFFFF" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" borderStyle="none" 
+				styleName="catalogPanel" backgroundAlpha="1.0">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Utils;
+			
+			import components.SuperGrid.SuperGrid;
+			import components.SuperGrid.contenedorSt;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.ObjectProxy;
+			
+			[Bindable] public var item:Object = new Object();	
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padreContenedor:contenedorSt;
+			[Bindable] public var _padreSuperGrid:SuperGrid;
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+					_padreContenedor.allowMaximize=false;
+					_padreContenedor.allowResize=false;
+					
+					loader.dp.cargaLoader(this);
+					
+					loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					
+					
+					//ws_traerContactos.send();
+					
+					if(strAccion=="NUEVO"){
+						loader.dp.hacerWS(['ciudades']);
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						loader.dp.hacerWS(['ciudades']);
+					}	
+				}catch(ex:Error){
+					loader.msgAviso("stArticulos->init() ",3,ex);
+				}
+			}
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//arrFamilias.source = Utils.clone(loader.dp.arrFamilias.source);		
+					
+					/*// Ciudades
+					var arr1:ArrayCollection = new ArrayCollection();
+					arr1.source = DataProviders.insertarSource(Utils.clone(loader.dp.arrCiudades),new ObjectProxy({clave_ciudad:'',ciudad:'Sin Seleccionar'}));
+					arr1.refresh();
+					cbxCiudad.dataProvider = arr1;	
+					cbxCiudad.labelField = "ciudad";
+					*/
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						cambiaRegistro();
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			public function cerrar():void{
+				_padreContenedor.cerrar();
+			}
+			
+			public function cambiaRegistro():void{
+				huboCambios = false;
+				// Buscar Ciudad
+				//DataProviders.selectedIndexCombo(cbxCiudad,'clave_ciudad',item.clave_ciudad);
+				
+				// Buscar Localidad
+				//DataProviders.selectedIndexCombo(cbxLocalidad,'clavelocalidad',item.clavelocalidad);
+				huboCambios=false;
+				
+			}
+			
+			
+			
+			/********** VALIDA Y GUARDA **********/
+			public function validar():void{
+				/*var errores:String="";				
+				if(StringUtil.trim(txtClaveCiudad.text)==""){      errores+="- Ingrese la clave.\n"; }
+				if(cbxEntidadFederativa.selectedIndex<=0){      errores+="- Ingrese el Estado.\n"; }
+				if(cbxLocalidad.selectedIndex<0&&cbxLocalidad.selectedItem.nombrelocalidad.toString()!='Sin Seleccionar'){      errores+="- Ingrese el municipio.\n"; }
+				if(StringUtil.trim(txtNombreCiudad.text)==""){ errores+="- Ingrese el nombre de la Localidad.\n"; }
+				//if(StringUtil.trim(txtDirectorlocalidad.text)==""){ errores+="- Ingrese el nombre del director de Ciudad.\n"; }
+				
+				if(errores==""){
+				guardar();					
+				}else{	
+				loader.msgAviso(errores,2);
+				}
+				*/
+			}
+			
+			private function guardar():void{
+				/*if(strAccion=="NUEVO" || strAccion=="COPIAR")  loader.dp.cargaService(ws_nuevo_registro);
+				if(strAccion=="EDITAR") loader.dp.cargaService(ws_edita_registro);
+				*/
+			}
+			/********** VALIDA Y GUARDA **********/
+			
+			
+			
+			
+			
+			
+			
+			/******** RESULT HANDLERS *********/
+			public function resultGuardar(event:ResultEvent):void{
+				/*this.parentApplication.enabled=true;
+				var tipo:String    = (strAccion=="NUEVO" || strAccion=="COPIAR") ? "guardada"        : "editada";
+				var ws:HTTPService = (strAccion=="NUEVO" || strAccion=="COPIAR") ? ws_nuevo_registro : ws_edita_registro;
+				
+				switch(StringUtil.trim(event.result.toString())){
+				case "ok":
+				huboCambios = false;
+				loader.msgAviso("La Localidad fue "+tipo+" correctamente.");
+				loader.dp.hacerWS(['ciudades'],true);
+				_padreSuperGrid.buscaRespuestas();
+				cerrar();						
+				break;
+				
+				case "yaexiste":
+				loader.msgAviso("La Localidad ya existe",2);
+				break;
+				
+				default:
+				if(loader.debug){
+				loader.msgAviso(StringUtil.trim(event.result.toString()),3);	
+				}else{
+				loader.dp.reintentarHttpService("Ocurrió un problema al realizar la operación",ws,event);
+				}
+				}
+				*/
+			}
+			/******** RESULT HANDLERS *********/
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</mx:TitleWindow>

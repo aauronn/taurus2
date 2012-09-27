@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<actionScriptProperties analytics="false" mainApplicationPath="loader.mxml" projectUUID="8bee8575-d05e-4fda-a667-be8b5f89fd17" version="10">
+  <compiler additionalCompilerArguments="-locale en_US" autoRSLOrdering="true" copyDependentFiles="true" fteInMXComponents="false" generateAccessible="true" htmlExpressInstall="true" htmlGenerate="true" htmlHistoryManagement="true" htmlPlayerVersionCheck="true" includeNetmonSwc="false" outputFolderPath="bin-debug" removeUnusedRSL="true" sourceFolderPath="src" strict="true" targetPlayerVersion="0.0.0" useApolloConfig="false" useDebugRSLSwfs="true" verifyDigests="true" warn="true">
+    <compilerSourcePath/>
+    <libraryPath defaultLinkType="0">
+      <libraryPathEntry kind="4" path="">
+        <excludedEntries>
+          <libraryPathEntry kind="3" linkType="1" path="${PROJECT_FRAMEWORKS}/libs/flex.swc" useDefaultLinkType="false"/>
+          <libraryPathEntry kind="3" linkType="1" path="${PROJECT_FRAMEWORKS}/libs/core.swc" useDefaultLinkType="false"/>
+        </excludedEntries>
+      </libraryPathEntry>
+      <libraryPathEntry kind="1" linkType="1" path="libs"/>
+    </libraryPath>
+    <sourceAttachmentPath/>
+  </compiler>
+  <applications>
+    <application path="loader.mxml"/>
+  </applications>
+  <modules>
+    <module application="src/loader.mxml" destPath="flex_modulos/BuroCredito/Empresas/Empresas.swf" optimize="true" sourcePath="src/flex_modulos/BuroCredito/Empresas/Empresas.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/Familias/Familias.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/Familias/Familias.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/Sbu/Sbu.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/Sbu/Sbu.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/ExportarContpaq/PolizasDiario/PolizasDiario.swf" optimize="true" sourcePath="src/flex_modulos/ExportarContpaq/PolizasDiario/PolizasDiario.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/BuroCredito/PersonaMoral/PersonaMoral.swf" optimize="true" sourcePath="src/flex_modulos/BuroCredito/PersonaMoral/PersonaMoral.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/ExportarContpaq/ActualizarProveedores/ActualizarProveedores.swf" optimize="true" sourcePath="src/flex_modulos/ExportarContpaq/ActualizarProveedores/ActualizarProveedores.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/ExportarContpaq/exportarCompaq.swf" optimize="true" sourcePath="src/flex_modulos/ExportarContpaq/exportarCompaq.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/Fabricantes/Fabricantes.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/Fabricantes/Fabricantes.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/catalogos.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/catalogos.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/TipoUsuarios/TipoUsuarios.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/TipoUsuarios/TipoUsuarios.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/Articulos/Articulos.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/Articulos/Articulos.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/BuroCredito/PersonaFisica/PersonaFisica.swf" optimize="true" sourcePath="src/flex_modulos/BuroCredito/PersonaFisica/PersonaFisica.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/Usuarios/Usuarios.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/Usuarios/Usuarios.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/Bienvenida/Bienvenida.swf" optimize="true" sourcePath="src/flex_modulos/Bienvenida/Bienvenida.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/ExportarContpaq/PolizasCompras/PolizasCompras.swf" optimize="true" sourcePath="src/flex_modulos/ExportarContpaq/PolizasCompras/PolizasCompras.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/catalogos/Clientes2/Clientes2.swf" optimize="true" sourcePath="src/flex_modulos/catalogos/Clientes2/Clientes2.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/Registro/RegistroChihuahua.swf" optimize="true" sourcePath="src/flex_modulos/Registro/RegistroChihuahua.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/Proyectos/Proyectos.swf" optimize="true" sourcePath="src/flex_modulos/Proyectos/Proyectos.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/Nomina/Nomina.swf" optimize="true" sourcePath="src/flex_modulos/Nomina/Nomina.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/ExportarContpaq/PolizasIngresos/PolizasIngresos.swf" optimize="true" sourcePath="src/flex_modulos/ExportarContpaq/PolizasIngresos/PolizasIngresos.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/BuroCredito/BuroCredito.swf" optimize="true" sourcePath="src/flex_modulos/BuroCredito/BuroCredito.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/Registro/Registro.swf" optimize="true" sourcePath="src/flex_modulos/Registro/Registro.mxml"/>
+    <module application="src/loader.mxml" destPath="flex_modulos/Principal.swf" optimize="true" sourcePath="src/flex_modulos/Principal.mxml"/>
+  </modules>
+  <buildCSSFiles/>
+  <flashCatalyst validateFlashCatalystCompatibility="false"/>
+</actionScriptProperties>

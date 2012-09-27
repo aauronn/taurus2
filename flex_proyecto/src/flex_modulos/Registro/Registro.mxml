@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" 
+		  xmlns:SuperGrid="components.SuperGrid.*" creationComplete="init(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import flex_modulos.Registro.comps.stRegistro;
+			
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			public function getCatalogoSt():stRegistro{
+				return new stRegistro;
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+					loader.dp.revisaPermisosGrid(gridResultados,"rabsasonora_consultar","rabsasonora_crear","rabsasonora_editar","rabsasonora_borrar","rabsasonora_copiar","rabsasonora_imprimir");
+			}
+			
+			protected function btnCrearAgenda_clickHandler(event:MouseEvent):void
+			{
+				var url:String ="http://taurusabsa.sytes.net/registroABSA/ws_registroTendencias.php";
+				//var url:String ="http://localhost/registroABSA/ws_registroTendencias.php";
+				var request:URLRequest = new URLRequest(url);
+				var variables:URLVariables = new URLVariables();
+				variables.opcion = "IMPRIMIR_AGENDA";
+				variables.tiporeporte='PDF';
+				request.data = variables;
+				request.method = URLRequestMethod.POST;
+				navigateToURL(request,"_blank");
+			}
+			
+			protected function cbxIdEvento_changeHandler(event:ListEvent):void
+			{
+				// TODO Auto-generated method stub
+				gridResultados.buscaNewRespuestas();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Registrados" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >
+		<mx:HBox width="100%" paddingLeft="5">
+			<mx:ComboBox id="cbxIdEvento" width="200" change="cbxIdEvento_changeHandler(event)">
+				<mx:dataProvider>
+					<s:ArrayCollection>
+						<fx:Object label="Tendencias Tecnologícas" clave="1"/>
+						<fx:Object label="Kinetix On Tour" clave="2"/>
+						<fx:Object label="Road Show Mexicali" clave="3"/>
+						<fx:Object label="Road Show Tijuana" clave="4"/>
+					</s:ArrayCollection>
+				</mx:dataProvider>
+			</mx:ComboBox>
+			<mx:Button id="btnCrearAgenda" label="Crear Agenda" click="btnCrearAgenda_clickHandler(event)"/>
+		</mx:HBox>
+		<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Registrados" 
+							 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerRegistros}" _padreCatalogo="{this}"
+							 isCatalogo="true" _wsBorrar="{ws_borrarRegistros}"  _idtabla="idtendencia" searchOnInit="false" />		
+	</mx:Panel>
+	
+	<fx:Declarations>
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="nombre" headerText="Nombre" width="70" />
+			<mx:DataGridColumn dataField="apaterno" headerText="Apellido" width="70" />
+			<mx:DataGridColumn dataField="telefono" headerText="Telefono" width="80" />	
+			<mx:DataGridColumn dataField="correo" headerText="Correo" width="80" />
+			<mx:DataGridColumn dataField="empresa" headerText="Empresa" width="90" />
+			<!--
+			<mx:DataGridColumn dataField="s1" headerText="Sesion 1" width="30" />
+			<mx:DataGridColumn dataField="s2" headerText="Sesion 2" width="30" />
+			<mx:DataGridColumn dataField="s3" headerText="Sesion 3" width="30" />
+			<mx:DataGridColumn dataField="s4" headerText="Sesion 4" width="30" />
+			-->
+			<mx:DataGridColumn dataField="validado" headerText="Validado" width="20"/>
+		</fx:Array>	
+		<!--{loader.strHostUrl}-->
+		<mx:HTTPService id="ws_traerRegistros" url="http://taurusabsa.sytes.net/registroABSA/ws_registroTendencias.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+				<idusuario>{loader.objetoUsuario.id}</idusuario>
+				<idtipousuario>{loader.idtipousuario}</idtipousuario>
+				<idevento>{cbxIdEvento.selectedItem.clave}</idevento>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarRegistros" url="http://taurusabsa.sytes.net/registroABSA/ws_registroTendencias.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+			</mx:request>
+		</mx:HTTPService>
+	</fx:Declarations>
+</s:Module>

@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:controles="components.MultimediaPlayer.controls.*" backgroundColor="#000000" creationComplete="init()" removedFromStage="cleanUp()" rollOver="{showControls(true)}" rollOut="{showControls(false)}">
+	
+	<mx:Script>
+		<![CDATA[
+		
+			import mx.controls.Alert;
+			import components.MultimediaPlayer.comps.multimediaContainer;
+			import components.MultimediaPlayer.events.completeEvent;
+			import components.MultimediaPlayer.events.MediaProgressSeekEvent;
+			import flash.events.*;
+		    import flash.media.Sound;
+		    import flash.media.SoundChannel;
+		    import flash.net.URLRequest;
+		    import actionscripts.Iconos;
+		    import actionscripts.Utils;
+	
+			[Bindable]
+			public var soundandchannel:SoundAndChannel;
+			
+			[Bindable] public var biblioteca:multimediaContainer;
+			
+			private var ispaused:Boolean=false;
+			private var pauseposition:Number=0;
+			private var positiontimer:Timer;
+			
+			[Bindable]
+			public var source:String="";
+			
+			[Bindable]
+			public var titulo:String="";
+			
+			[Bindable]
+			public var loadpercent:uint=0;
+			
+			[Bindable]
+			public var position:Number=0;
+			
+			[Bindable]
+			public var duration:Number=0;
+			
+			
+			private function cleanUp():void{
+				
+				if(soundandchannel.channel!=null){
+					soundandchannel.channel.stop();
+				}
+	
+				if(soundandchannel.sound!=null){
+					try{
+						soundandchannel.sound.close();
+					}catch(e:Error){
+						//
+					}
+				}
+			}
+			
+					
+		
+			private function init():void{
+				
+				var req:URLRequest=new URLRequest(source);
+				//var req:URLRequest=new URLRequest("http://www.teknision.com/personal/tony/crossthefloor_rising.mp3");
+				//var req:URLRequest=new URLRequest("http://www.luisgago.com/descargas.php?doc=LuisGagoElsuenoylamuerte.mp3");
+				soundandchannel=new SoundAndChannel();
+				
+				soundandchannel.sound=new Sound();
+				soundandchannel.sound.addEventListener(IOErrorEvent.IO_ERROR,handleError);
+				soundandchannel.sound.addEventListener(Event.OPEN,start);
+				soundandchannel.sound.addEventListener(Event.ID3, id3Handler);
+				soundandchannel.sound.load(req);
+				soundandchannel.channel=soundandchannel.sound.play();
+				soundandchannel.channel.addEventListener(Event.SOUND_COMPLETE,soundCompleteHandler);				
+			}
+			
+			public function handleToggleVolume(event:MouseEvent):void{
+				
+				var tf:SoundTransform=soundandchannel.channel.soundTransform;
+				
+				if(soundandchannel.channel.soundTransform.volume>0){
+					tf.volume=0;
+					volume_toggle.setState(VolumeButton.OFF);
+				}else{
+					tf.volume=1;
+					volume_toggle.setState(VolumeButton.ON);
+				}
+				soundandchannel.channel.soundTransform=tf;
+				
+			}
+
+			
+			private function handleError(event:IOErrorEvent):void{
+				//trace("entre error io");
+				biblioteca.currentState="";
+				mx.controls.Alert.show("Ocurrió un error");
+			}
+			
+			private function handleTogglePlayPause(event:MouseEvent):void{
+				try{
+					if(ispaused){
+						soundandchannel.channel=soundandchannel.sound.play(pauseposition);
+						pauseposition=0;
+						ispaused=false;
+						play_pause_toggle.setState(PlayButton.PLAYING);
+						changeListenerComplete();
+					}else{
+						pauseposition=soundandchannel.channel.position;
+						soundandchannel.channel.stop();
+						ispaused=true;
+						play_pause_toggle.setState(PlayButton.PAUSED);
+						changeListenerComplete();
+					}	
+				}	
+				catch(e:*){
+					//trace(e.toString());	
+				}
+			}
+			
+			private function handleSeekRequest(event:MediaProgressSeekEvent):void{
+				soundandchannel.channel.stop();
+				if(this.ispaused){
+					pauseposition=event.position
+				}else{
+					//trace("POS:"+event.position);
+					soundandchannel.channel=soundandchannel.sound.play(event.position);
+					changeListenerComplete();
+				}
+				//trace("POS:"+event.position);
+			}
+				
+			private function updateLoadedPercent(event:ProgressEvent):void{
+							
+				var r_val:uint=0;
+				if(soundandchannel.sound.bytesTotal>50){
+					r_val=Math.ceil((soundandchannel.sound.bytesLoaded/soundandchannel.sound.bytesTotal)*100);
+				}
+				loadpercent=r_val;
+			}
+			
+			
+			private function handleIndexTimerCycle(event:TimerEvent):void{
+				if(soundandchannel!=null){
+					//if(soundandchannel.sound.bytesLoaded>=soundandchannel.sound.bytesTotal){
+						duration=soundandchannel.sound.length;
+					//}
+					if(pauseposition==0){
+						position=soundandchannel.channel.position;
+					}
+					else{
+						position=pauseposition
+					}
+					
+					updateTimeDisplay();
+				}
+			}
+				
+			
+			public function start(evt:*):void{
+
+				clear();
+				play_pause_toggle.setState(PlayButton.PLAYING);
+				soundandchannel.sound.addEventListener(ProgressEvent.PROGRESS,updateLoadedPercent);
+				psSound.addEventListener(MediaProgressSeekEvent.CHANGE,handleSeekRequest);
+				psSound.addEventListener(completeEvent.COMPLETO,soundCompleteHandler);
+
+				if(positiontimer==null){
+					loadpercent=0;
+					positiontimer=new Timer(500);
+					positiontimer.addEventListener(TimerEvent.TIMER,handleIndexTimerCycle);
+					positiontimer.start();
+				}
+			}
+			
+			public function clear():void{
+				if(positiontimer!=null){
+					soundandchannel.sound.removeEventListener(ProgressEvent.PROGRESS,updateLoadedPercent);
+					positiontimer.stop();
+					positiontimer=null;
+				}
+			}
+			
+			private function soundCompleteHandler(event:Event):void {
+	            //trace("soundCompleteHandler: " + event);
+	            flash.media.SoundMixer.stopAll();
+	            soundandchannel.channel=soundandchannel.sound.play(0);
+	            soundandchannel.channel.stop();
+	           
+	            ispaused=true;
+	            play_pause_toggle.setState(PlayButton.PAUSED);
+	            changeListenerComplete();  
+	        }
+	                
+	        private function changeListenerComplete():void{
+	        	soundandchannel.channel.removeEventListener(Event.SOUND_COMPLETE,soundCompleteHandler);
+				soundandchannel.channel.addEventListener(Event.SOUND_COMPLETE,soundCompleteHandler);
+			}
+			
+			private function showControls(flag:Boolean):void{
+				if(biblioteca.showVideoControl) videoControl.visible=flag;
+				if(biblioteca.showTxtTitulo)    title_label.visible=flag;
+			}
+			
+			private function updateTimeDisplay():void{
+				var minutes:Number = Math.floor(position / 1000) / 60 >> 0;
+				var seconds:Number = Math.floor(position / 1000) % 60 >> 0;
+				// track time display
+				if ( seconds >= 0 && seconds < 10) {
+					txtTime.text = minutes.toString() + ":0" + seconds.toString();
+				} else {
+					txtTime.text = minutes.toString() + ":" + seconds.toString();
+				}
+			}
+			
+			 private function id3Handler(event:Event):void {
+	            /*
+	            //trace("id3Handler: " + (event as Object).TIT2);
+	            trace("Comentario: "+soundandchannel.sound.id3.COMM);
+	            trace("Album: "+soundandchannel.sound.id3.TALB);
+	            trace("Genero: "+soundandchannel.sound.id3.TCON);
+	            trace("Nombre: "+soundandchannel.sound.id3.TIT2);
+	            trace("Artista: "+soundandchannel.sound.id3.TPE1);
+	            trace("Track: "+soundandchannel.sound.id3.TRCK);
+	            trace("Año: "+soundandchannel.sound.id3.TYER);
+	            trace("Tiempo:"+soundandchannel.sound.id3.TIME);
+	            */
+	            //soundandchannel.sound.close();
+	            
+	        }
+	        
+	        private function descargarAudio():void{
+				var page:URLRequest = new URLRequest();
+				page.url=source;
+				//var objBitacora:Object={modulo:'recursos', msg:"Archivo de "+titulo};
+				//Utils.downloadFile(DisplayObject(this.parentApplication),page,true,objBitacora);
+				navigateToURL(page,"_blank");
+			}
+	
+		]]>
+	</mx:Script>
+	
+	<mx:Canvas width="100%" height="100%"  >
+	
+		<mx:HBox  width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+			<mx:Image id="img" source="{Iconos.ICON_MUSIC}" horizontalAlign="center" verticalAlign="middle"/>	
+		</mx:HBox>
+		
+		<mx:HBox visible="false" id="videoControl" width="100%" height="100%" verticalAlign="bottom" horizontalAlign="center" showEffect="{fadeup}" hideEffect="{fadedown}">
+				
+			<mx:VBox width="100%" horizontalAlign="center" verticalAlign="middle" horizontalScrollPolicy="off" verticalScrollPolicy="off"
+				backgroundColor="#000000" backgroundAlpha=".75" height="80" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"
+			>
+	
+				<mx:Canvas width="100%">
+		
+					<mx:HBox width="100%" horizontalAlign="center">
+						<controles:PlayButton id="play_pause_toggle" click="handleTogglePlayPause(event)" />
+					</mx:HBox>
+					
+					<mx:Text textAlign="left" verticalCenter="0" id="txtTime" styleName="mediaItemPanelHeaderText" visible="{biblioteca.showTxtTime}" includeInLayout="{biblioteca.showTxtTime}" />
+							
+					<mx:HBox width="100%" height="100%" horizontalAlign="right" verticalAlign="middle" paddingRight="5">
+						
+						<controles:VolumeButton verticalCenter="0" id="volume_toggle" click="handleToggleVolume(event)" visible="{biblioteca.showBtnVolume}" includeInLayout="{biblioteca.showBtnVolume}" />
+					</mx:HBox>
+		
+				</mx:Canvas>
+				
+				<controles:SoundProgressSlider id="psSound" width="100%" loadpercent="{loadpercent}" position="{position}" duration="{duration}" visible="{biblioteca.showProgressSlider}" includeInLayout="{biblioteca.showProgressSlider}" />
+				
+			</mx:VBox>
+			
+		</mx:HBox>
+		
+		<mx:Label id="title_label" truncateToFit="true" textAlign="left" visible="false" maxWidth="{(this.width)-300}"  text="{titulo}" x="8" y="1" buttonMode="true" mouseChildren="false" useHandCursor="true" showEffect="{fadeup}" hideEffect="{fadedown}" click="descargarAudio()" styleName="mediaItemPanelHeaderText"/>
+			
+	</mx:Canvas>
+	
+	<mx:Fade id="fadeup" alphaFrom="0" alphaTo="1" duration="250"  />
+	<mx:Fade id="fadedown" alphaFrom="1" alphaTo="0" duration="250" />
+	
+	
+</mx:VBox>

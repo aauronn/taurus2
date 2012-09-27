@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300"
+		 creationComplete="initVideo()" removedFromStage="cleanUp()" xmlns:controles="components.MultimediaPlayer.controls.*" xmlns:mediarenderer="components.MultimediaPlayer.mediarenderers.*" rollOver="{showControls(true)}" rollOut="{showControls(false)}" xmlns:controls="com.flexdotorg.controls.*">
+	
+	<fx:Script>
+		<![CDATA[
+			import components.MultimediaPlayer.comps.multimediaContainer;
+			import components.MultimediaPlayer.events.MediaProgressSeekEvent;
+			
+			import mx.controls.Alert;
+			import mx.events.MetadataEvent;
+			import mx.utils.ObjectUtil;
+
+			
+			public var arr:Array = [];
+			[Bindable] public var biblioteca:multimediaContainer;
+			
+			[Bindable]
+			public var source:String="";
+			
+			[Bindable]
+			public var titulo:String="";
+			
+			
+			private function initVideo():void{
+				play_pause_toggle.setState(PlayButton.PLAYING);
+				vid.source=source;
+				//vid.mx_internal::videoPlayer.clear()
+				
+				//videoControl.width=vid.width;
+				//videoControl.height=vid.height;
+				
+				//trace("VideoW:"+videoControl.width+" VideoH: "+videoControl.height);
+				vid.videoControl=videoControl;
+				loadpercent=0;
+				
+				
+				//stage.addEventListener(NativeWindowDisplayStateEvent.DISPLAY_STATE_CHANGE,resizeEvent); 
+				stage.addEventListener(Event.RESIZE, resizeEvent);
+				stage.addEventListener(FullScreenEvent.FULL_SCREEN, handleFullScreen);
+				vid.addEventListener(ProgressEvent.PROGRESS,updateLoadedPercent);
+				vid.addEventListener(mx.events.VideoEvent.PLAYHEAD_UPDATE,handlePlayheadUpdate);
+				vid.addEventListener(mx.events.VideoEvent.COMPLETE,handleCompleteVideo);
+				psVideo.addEventListener(MediaProgressSeekEvent.CHANGE,handleSeekRequest);
+				
+			}
+			
+			private function resizeEvent(event:*):void{
+				//videoControl.width=vid.width;
+				//videoControl.height=vid.height;
+				//trace("VideoW:"+videoControl.width+" VideoH: "+videoControl.height);
+				//vid.videoControl=videoControl;
+			}
+			
+			
+			private function handleFullScreen(event:*):void{
+				try{
+					
+					if(fs_toggle.getState()=="fullscreen"){
+						fs_toggle.setState(FullScreenButton.NORMALSCREEN);
+						callLater(psVideo.updateSliderSettings);
+					}
+					else{
+						fs_toggle.setState(FullScreenButton.FULLSCREEN);
+						callLater(psVideo.updateSliderSettings);
+						//trace("ENTRE FS");
+					}
+				}
+				catch(e:*){
+					
+					//trace(stage.displayState);
+					Alert.show(stage.toString());
+				}
+			}
+			
+			private function cleanUp():void{
+				vid.close();
+			}
+			
+			private function handleStateChange():void{
+				//trace(vid.state);
+				if(vid.state=="connectionError"){
+					biblioteca.currentState="";
+					//Alert.show("Ocurrió un error");
+				}
+				else{
+					if(vid.state == "playing" || vid.state == "paused" || vid.state == "stopped"){
+						loader.visible = false;
+					}
+					else{
+						if(vid.state!="close"){
+							loader.visible = true;
+						}
+					}
+				}
+				
+				
+			}
+			
+			private function toggleFullScreen(event:MouseEvent):void {
+				switch(stage.displayState) {
+					case "normal":
+						this.vid.displayState = StageDisplayState.FULL_SCREEN;
+						break;
+					case "fullScreen":
+					default:
+						stage.displayState = StageDisplayState.NORMAL;
+						break;
+				}
+			}
+			
+			
+			//CONTROL
+			import flash.events.*;
+			
+			[Bindable]
+			public var loadpercent:uint=0;
+			
+			[Bindable]
+			public var position:Number=0;
+			
+			[Bindable]
+			public var duration:Number=0;
+			
+			[Bindable]
+			public var showvolume:Boolean=true;
+			
+			private function handlePlayClick(event:Event):void{
+				if(vid.playing){
+					vid.pause();
+					play_pause_toggle.setState(PlayButton.PAUSED);
+				}else{
+					vid.play();
+					play_pause_toggle.setState(PlayButton.PLAYING);
+				}
+				//trace("Estado del Video: "+vid.state + " responsive: "+vid.stateResponsive);
+			}
+			
+			private function handleVolumeClick(event:Event):void{
+				if(vid.volume>0){
+					vid.volume=0;
+					volume_toggle.setState(VolumeButton.OFF);
+				}
+				else{
+					volume_toggle.setState(VolumeButton.ON);
+					vid.volume=100;
+				}
+			}
+			
+			private function updateLoadedPercent(event:ProgressEvent):void{
+				var r_val:uint=0;
+				if(vid.bytesTotal>50){
+					r_val=Math.round((vid.bytesLoaded/vid.bytesTotal)*100);
+				}
+				loadpercent=r_val;
+			}
+			
+			private function handlePlayheadUpdate(event:mx.events.VideoEvent):void{
+				//trace(event.toString())
+				duration=vid.totalTime;
+				position=vid.playheadTime;
+				updateTimeDisplay();
+			}
+			
+			private function handleSeekRequest(event:MediaProgressSeekEvent):void{
+				//trace("NEW POS:"+event.position);
+				vid.playheadTime=event.position;
+			}
+			
+			private function handleCompleteVideo(event:mx.events.VideoEvent):void{
+				//trace(event.toString());
+				play_pause_toggle.setState(PlayButton.PAUSED);
+				if(stage.displayState != StageDisplayState.NORMAL){
+					toggleFullScreen(new MouseEvent("click"));
+				}
+			}
+			
+			private function videoDisplay_metadataReceived(evt:MetadataEvent):void {
+				var item:String;
+				var meta:Object = evt.info; // videoDisplay.metadata;
+				var value:*;
+				for (item in meta) {
+					if (ObjectUtil.isSimple(meta[item])) {
+						if (meta[item] is Array) {
+							value = "[Array]";
+						} else {
+							value = meta[item]
+						}
+						arr.push({name:item, value:value});
+						//trace("Nombre:"+item+ " Valor: "+value);
+					}
+					
+				}
+				arr.sortOn("name", Array.CASEINSENSITIVE);
+			}
+			
+			private function showControls(flag:Boolean):void{
+				if(biblioteca.showVideoControl) videoControl.visible=flag;
+				if(biblioteca.showTxtTitulo)    title_label.visible=flag;
+			}
+			
+			private function updateTimeDisplay():void{
+				var minutes:Number = Math.floor(position) / 60 >> 0;
+				var seconds:Number = Math.floor(position) % 60 >> 0;
+				// track time display
+				if ( seconds >= 0 && seconds < 10) {
+					txtTime.text = minutes.toString() + ":0" + seconds.toString();
+				} else {
+					txtTime.text = minutes.toString() + ":" + seconds.toString();
+				}
+				//trace ("POS"+ position+" TIME: "+txtTime.text);
+			}
+			
+			private function descargarVideo():void{
+				var page:URLRequest = new URLRequest();
+				page.url=vid.source;
+				navigateToURL(page,"_blank");
+				//var objBitacora:Object={modulo:'recursos', msg:"Archivo de "+titulo};
+				//Utils.downloadFile(DisplayObject(this.parentApplication),page,true,objBitacora);
+			}
+		]]>
+	</fx:Script>
+	
+	<mx:Canvas width="100%" height="100%">
+		<mediarenderer:VideoFSDisplay id="vid" top="0" left="0" bottom="0" right="0" stateChange="handleStateChange()" enableSmoothing="true" setDeblocking="1" metadataReceived="videoDisplay_metadataReceived(event);" />
+		
+		<mx:HBox width="100%" height="100%" verticalAlign="middle" horizontalAlign="center">
+			<controls:LoadingIcon id="loader" />
+			
+		</mx:HBox>
+		
+		
+		
+		<mx:HBox visible="false" id="videoControl" bottom="0" left="0" right="0" height="100%" verticalAlign="bottom" horizontalAlign="center" showEffect="{fadeup}" hideEffect="{fadedown}" horizontalScrollPolicy="off" verticalScrollPolicy="off">
+			
+			<mx:VBox width="100%" horizontalAlign="center" verticalAlign="middle" horizontalScrollPolicy="off" verticalScrollPolicy="off"
+					 backgroundColor="#000000" backgroundAlpha=".75" height="80" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"
+					 >
+				
+				<mx:Canvas width="100%">
+					
+					
+					<mx:Text textAlign="left" verticalCenter="0" id="txtTime" styleName="mediaItemPanelHeaderText" visible="{biblioteca.showTxtTime}" includeInLayout="{biblioteca.showTxtTime}" />
+					
+					
+					<mx:HBox width="100%" horizontalAlign="center">
+						<controles:PlayButton id="play_pause_toggle" click="handlePlayClick(event)" visible="{biblioteca.showBtnPlayPause}" includeInLayout="{biblioteca.showBtnPlayPause}" />
+					</mx:HBox>
+					
+					
+					<mx:HBox width="100%" height="100%" horizontalAlign="right" verticalAlign="middle" paddingRight="5">
+						<!--<mx:Button label="FS" click="toggleFullScreen(event)"/>
+						-->
+						<controles:VolumeButton id="volume_toggle" click="handleVolumeClick(event)" visible="{biblioteca.showBtnVolume}" includeInLayout="{biblioteca.showBtnVolume}" paddingRight="10"/>
+						<controles:FullScreenButton id="fs_toggle" click="toggleFullScreen(event)" visible="{biblioteca.showBtnFullScreen}" includeInLayout="{biblioteca.showBtnFullScreen}" />
+					</mx:HBox>
+					
+				</mx:Canvas>
+				
+				<controles:MediaProgressSlider id="psVideo" width="100%" loadpercent="{loadpercent}" position="{position}" duration="{duration}" visible="{biblioteca.showProgressSlider}" includeInLayout="{biblioteca.showProgressSlider}" />
+				
+			</mx:VBox>
+			
+		</mx:HBox>
+		
+		<mx:Label id="title_label" truncateToFit="true" textAlign="left" visible="false" maxWidth="{(this.width)-300}"  text="{titulo}" x="8" y="1" buttonMode="false" mouseChildren="false" useHandCursor="false" showEffect="{fadeup}" hideEffect="{fadedown}" click="//descargarVideo()" styleName="mediaItemPanelHeaderText"/>
+		
+		
+	</mx:Canvas>
+
+	
+	<fx:Declarations>
+		<mx:Fade id="fadeup" alphaFrom="0" alphaTo="1" duration="300"  />
+		<mx:Fade id="fadedown" alphaFrom="1" alphaTo="0" duration="300" />
+	</fx:Declarations>
+</mx:VBox>

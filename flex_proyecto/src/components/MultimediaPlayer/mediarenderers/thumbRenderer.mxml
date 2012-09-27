@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+    horizontalAlign="center" height="70" verticalAlign="middle">
+    <mx:Image id="albumImage" 
+        source="{data.@url_thumb}"/>    
+</mx:VBox> 

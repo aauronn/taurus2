@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.Iconos;
+			import actionscripts.Utils;
+			
+			import mx.controls.Alert;
+			import mx.rpc.events.ResultEvent;
+			
+			[Bindable] public var strDatos:String;
+			
+			protected function ws_prueba_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				//Alert.show("llegue");
+				txaPoliza.text = Utils.decrypt(event.result.toString(),loader.RC4_KEY);
+				//txaPoliza.text = event.result.toString();
+				strDatos = Utils.decrypt(event.result.toString(),loader.RC4_KEY);
+				var total:Array = strDatos.split("P ");
+				var ventas:Array = strDatos.split("VENTAS");
+				var notas:Array = strDatos.split("NOTAS");
+				var strVN:String = "Número de Pólizas Creadas: " + (total.length-1) + "\n" +
+					"Pólizas de Ventas: " + (ventas.length-1)/3 + "\n" +
+					"Pólizas de Notas de Credito: " + (notas.length-1);
+				Alert.show(strVN,"Creadas");
+			}
+			
+			protected function lkbCrearPoliza_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				if(dtfFecha.text!=""){
+					ws_prueba.send();
+				}
+			}
+			
+			private function exportXLS ():void{
+				var url:String =loader.strHostUrl+"ws_polizas_diario.php";
+				var request:URLRequest = new URLRequest(url);
+				var variables:URLVariables = new URLVariables();
+				variables.opcion = "EXPORTAR_POLIZA_FACTURAS";
+				//variables.tiporeporte='XLS';
+				variables.fecha= dtfFecha.text;
+				variables.strDatos= strDatos;
+				request.data = variables;
+				request.method = URLRequestMethod.POST;
+				navigateToURL(request,"_blank");
+			}
+			
+			protected function lkbExportar_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				exportXLS();
+			}
+			
+			
+		]]>
+	</fx:Script>
+	
+	<s:Panel id="pPrincipal" title="Polizas - Diario" width="100%" height="100%">
+		<s:layout>
+			<s:VerticalLayout paddingBottom="2" paddingLeft="2" paddingRight="2" paddingTop="2"/>
+		</s:layout>
+		<mx:VBox width="100%" horizontalAlign="center" height="100%">
+			<mx:Form id="fPDiario" width="100%" height="100%" labelWidth="100" styleName="formaPolizasDiario">
+				<mx:HBox width="100%">
+					<mx:VBox width="300">
+						<mx:FormItem label="Fecha:" width="300">
+							<mx:DateField id="dtfFecha" width="150" showToday="true" formatString="YYYY-MM-DD"/>
+						</mx:FormItem>
+						<mx:FormItem label="No. Poliza Diario" width="300">
+							<mx:TextInput id="txtPDiarioNum" width="150" text="1"/>
+						</mx:FormItem>
+					</mx:VBox>
+					<mx:VBox width="150">
+						<s:CheckBox id="ckbVentas" label="Ventas" selected="true"/>
+						<s:CheckBox id="ckbNotasCredito" label="Notas Credito" selected="true"/>
+					</mx:VBox>
+				</mx:HBox>
+				<mx:FormItem>
+					<mx:HBox width="100%">
+						<mx:LinkButton id="lkbCrearPoliza" label="Crear Poliza" icon="{Iconos.FILENEW16}" click="lkbCrearPoliza_clickHandler(event)"/>
+						<mx:LinkButton id="lkbExportar" label="Exportar" icon="{Iconos.FILESAVE16}" click="lkbExportar_clickHandler(event)"/>
+					</mx:HBox>
+				</mx:FormItem>
+				<s:Spacer height="5"/>
+				<mx:Label text="Archivo:" fontWeight="bold"/>
+				<mx:TextArea id="txaPoliza" width="100%" height="90%" styleName="resultadoPoliza" 
+							 fontFamily="Courier New" fontSize="10"/>
+			</mx:Form>			
+		</mx:VBox>
+	</s:Panel>
+	
+	
+	
+	<fx:Declarations>
+		<mx:HTTPService showBusyCursor="true" id="ws_prueba" method="POST" requestTimeout="30" 
+						resultFormat="object" result="ws_prueba_resultHandler(event)"  
+						url="{loader.strHostUrl}ws_polizas_diario.php">
+			<!--fault="loader.dp.faultHandler(event)"-->
+			<mx:request>
+				<opcion>CREAR_POLIZA_FACTURAS</opcion>
+				<fecha>{dtfFecha.text}</fecha>
+				<poliza>{txtPDiarioNum.text}</poliza>
+				<notas>{ckbNotasCredito.selected}</notas>
+				<ventas>{ckbVentas.selected}</ventas>
+			</mx:request>
+		</mx:HTTPService>	
+		
+		
+		<!--invoke="loader.dp.cargaLoader(this)"-->
+	</fx:Declarations>
+</s:Module>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" height="200" showCloseButton="true" close="close()" paddingBottom="5" paddingLeft="5" paddingRight="5" layout="vertical" horizontalAlign="center" verticalAlign="middle" width="360" horizontalGap="1" title="{objMarkerData.descripcionsolicitudsolicitante}" paddingTop="5" verticalGap="2" headerHeight="20" borderThicknessBottom="2" borderThicknessLeft="2" borderThicknessRight="2" borderThicknessTop="2" styleName="superPanel">
+	
+	<mx:states>
+		<mx:State name="editar">
+			<mx:RemoveChild target="{hboxDatos}"/>
+			<mx:RemoveChild target="{hboxBotones}"/>
+			<mx:AddChild position="lastchild">
+				<mx:VBox height="100%" horizontalAlign="center" verticalAlign="middle">
+					<mx:HBox width="100%" horizontalGap="2">
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+
+					</mx:HBox>
+					<mx:HBox width="100%" horizontalGap="2">
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+					</mx:HBox>
+					<mx:HBox width="100%" horizontalGap="2">
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+						<mx:LinkButton icon="{Iconos.BRUJULA24}" width="33" height="33" click="{clickHandler(event);}"/>
+					</mx:HBox>
+	
+				</mx:VBox>
+			</mx:AddChild>
+			<mx:SetStyle name="paddingBottom" value="0"/>
+			<mx:SetStyle name="paddingLeft" value="0"/>
+			<mx:SetStyle name="paddingRight" value="0"/>
+			<mx:SetStyle name="paddingTop" value="0"/>
+		</mx:State>
+	</mx:states>
+	
+	<mx:Script>
+		<![CDATA[			
+			import actionscripts.Iconos;
+			import actionscripts.com.codeofdoom.events.ImagenMarkerEvent;
+			import actionscripts.com.codeofdoom.events.InfoWindowClosedEvent;
+			import actionscripts.com.codeofdoom.events.InfoWindowDeleteMarkerEvent;
+			import com.google.maps.overlays.Marker;
+			
+			import flash.events.MouseEvent;
+			
+			import mx.controls.Alert;
+			import mx.utils.ObjectProxy;
+						
+			[Bindable] public var objMarkerData:ObjectProxy;
+			
+			public function close():void{
+				var e:InfoWindowClosedEvent = new InfoWindowClosedEvent(objMarkerData.reporte);
+				objMarkerData.marker.closeInfoWindow();
+				e.marker = objMarkerData.marker;
+				objMarkerData.marker.dispatchEvent(e);
+			}
+			
+			public function closeOverLay(event:MouseEvent):void { //PARA GRABAR/EDITAR?
+//				if(txtNombre.text.length > 0){
+					var e:InfoWindowClosedEvent = new InfoWindowClosedEvent(objMarkerData.reporte); //var e:InfoWindowClosedEvent = new InfoWindowClosedEvent(txtNombre.text);
+					objMarkerData.marker.closeInfoWindow();
+					e.marker = objMarkerData.marker;
+					objMarkerData.marker.dispatchEvent(e);
+//				}
+//				else{
+//					Alert.show("Debes poner un nombre!");
+//				}
+			}
+			
+			public function removeOverLay(event:MouseEvent):void {
+//				if(txtNombre.text.length > 0){
+					var e:InfoWindowDeleteMarkerEvent = new InfoWindowDeleteMarkerEvent(objMarkerData.articulo); //var e:InfoWindowDeleteMarkerEvent = new InfoWindowDeleteMarkerEvent(txtNombre.text);
+					objMarkerData.marker.closeInfoWindow();
+					e.marker = objMarkerData.marker;
+					objMarkerData.marker.dispatchEvent(e);
+//				}
+//				else{
+//					Alert.show("El marcador no tiene nombre!");
+//				}
+			}
+
+			protected function btnEditar_clickHandler(event:MouseEvent):void {
+				this.currentState = "editar";
+			}
+			
+			private function clickHandler(event:MouseEvent):void{
+				var icon:Class = (event.target as LinkButton).getStyle("icon");
+				var e:ImagenMarkerEvent = new ImagenMarkerEvent(icon);
+				this.dispatchEvent(e);
+			}
+			public function btnGuardar_clickHandler(event:MouseEvent):void{
+		        var e:InfoWindowDeleteMarkerEvent = new InfoWindowDeleteMarkerEvent(objMarkerData.articulo); //var e:InfoWindowDeleteMarkerEvent = new InfoWindowDeleteMarkerEvent(txtNombre.text);
+					objMarkerData.marker.closeInfoWindow();
+					e.marker = objMarkerData.marker;
+					objMarkerData.marker.dispatchEvent(e);
+     	}
+
+
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" height="100%" horizontalGap="0" horizontalAlign="center" verticalAlign="middle" id="hboxDatos">
+		<mx:VBox width="70%" height="100%" horizontalAlign="center" verticalAlign="middle" id="vbox1" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5">
+			<mx:HBox width="100%" horizontalGap="0">
+				<mx:Label text="Reporte:" fontSize="9" width="57" textAlign="right"/>
+				<mx:Text text="{objMarkerData.descripcionsolicitudsolicitante}" width="100%" height="100%" fontSize="9"/>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalGap="0" height="44">
+				<mx:Label text="Dirección:" fontSize="9" width="57" textAlign="right" id="label1"/>
+				<mx:Text text="{objMarkerData.domiciliocallesolicitud + ' ' + objMarkerData.domicilionumerosolicitud + ' ' + objMarkerData.municipiosolicitud + ' ' + objMarkerData.ciudadsolicitud + ' ' + objMarkerData.coloniasolicitud}" fontSize="9" width="100%" height="100%"/>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalGap="0">
+				<mx:Label text="Estatus:" fontSize="9" width="57" textAlign="right" id="label2"/>
+				<mx:Text text="{objMarkerData.statussolicitud_desc}" fontSize="9"/>
+			</mx:HBox>
+			<mx:HBox width="100%" horizontalGap="0">
+				<mx:Label text="Fecha:" fontSize="9" width="57" textAlign="right" id="label3"/>
+				<mx:Text text="{objMarkerData.fechahorasolicitudsolicitante}" fontSize="9"/>
+			</mx:HBox>
+		</mx:VBox>
+		<mx:VBox width="30%" height="100%" horizontalAlign="center" verticalAlign="middle" id="vbox2" verticalGap="2" paddingBottom="0" paddingLeft="5" paddingRight="5" paddingTop="5">
+			<mx:Image id="imgArticulo" scaleContent="false" source="{objMarkerData.imagen}" width="91" height="85"/>
+			<mx:Label text="" width="74" textAlign="center" fontSize="12"/>
+		</mx:VBox>
+	</mx:HBox>
+	<mx:HBox horizontalAlign="center" verticalAlign="middle" width="100%" id="hboxBotones" visible="false" includeInLayout="false">
+		<mx:Button id="btnEditar" label="Escoger Marcador" height="18" fontSize="9" click="btnEditar_clickHandler(event)"/>
+		<mx:Button id="btnBorrar" label="Remover Marcador" click="removeOverLay(event)" visible="{objMarkerData != null}" includeInLayout="{objMarkerData != null}" height="18" fontSize="9"/>
+	</mx:HBox>
+
+	<mx:CurrencyFormatter id="currencyFormatter" precision="2" useThousandsSeparator="true" decimalSeparatorFrom="." thousandsSeparatorFrom="," useNegativeSign="true"/>
+</mx:TitleWindow>

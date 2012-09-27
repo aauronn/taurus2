@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Module xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" 
+		  xmlns:SuperGrid="components.SuperGrid.*"
+		  creationComplete="init(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import flex_modulos.catalogos.Fabricantes.comps.stFabricantes;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			
+			
+			
+			public function getCatalogoSt():stFabricantes{
+				return new stFabricantes;
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				loader.dp.revisaPermisosGrid(gridResultados,"fabricantes_consultar","fabricantes_crear","fabricantes_editar","fabricantes_borrar","fabricantes_copiar","fabricantes_imprimir");
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<!-- GRID PAGINADO -->
+	<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Catálogo de Fabricantes" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >		
+		<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Catálogo de Fabricantes" 
+							 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerFabricantes}" _padreCatalogo="{this}"
+							 isCatalogo="true" _wsBorrar="{ws_borrarFabricantes}"  _idtabla="idfabricante" />		
+	</mx:Panel>
+	
+	
+	
+	
+	<fx:Declarations>
+		
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="idfabricante" headerText="ID Fabricante" width="100" />
+			<mx:DataGridColumn dataField="clave_fabricante" headerText="Clave" width="100" />	
+			<mx:DataGridColumn dataField="nombre_fabricante" headerText="Nombre" width="400" />
+			<mx:DataGridColumn dataField="especialista" headerText="Especialista" width="300" />		
+		</fx:Array>	
+		
+		<mx:HTTPService id="ws_traerFabricantes" url="{loader.strHostUrl}ws_fabricantes.php">
+			<mx:request xmlns="">
+				<opcion>FILTRA_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarFabricantes" url="{loader.strHostUrl}ws_fabricantes.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_REGISTROS</opcion>
+				
+				
+			</mx:request>
+		</mx:HTTPService>
+		
+	</fx:Declarations>
+</s:Module>

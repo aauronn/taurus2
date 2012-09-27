@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox 
+	xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:mediawidgetcontrols="com.adobesamples.mediawidget.view.controls.*"
+	xmlns:mediawidgetpanel="com.adobesamples.mediawidget.view.panel.*"
+	>
+	
+	<mx:Script>
+		<![CDATA[
+		
+			import com.adobesamples.mediawidget.data.*;
+			import com.adobesamples.mediawidget.view.effects.*;
+			
+			private var __mediaitem:MediaList=new MediaList();
+			
+			[Bindable]
+			public var controlsvisible:Boolean=false;
+			
+			[Bindable]
+			public function set mediaitem(i_val:MediaList):void{
+				__mediaitem=i_val;
+				handleMediaItemChange();
+			}
+			
+			
+			public function get mediaitem():MediaList{
+				return __mediaitem;
+			}
+			
+			
+			internal function handleMediaItemChange():void{
+				//
+			}
+			
+			
+		]]>
+	</mx:Script>
+	
+	<mx:Fade id="fadeup" alphaFrom="0" alphaTo="1" duration="{MediaWidgetEffectSettings.CONTROLSVISIBLE_DURATION}" />
+	<mx:Fade id="fadedown" alphaFrom="1" alphaTo="0" duration="{MediaWidgetEffectSettings.CONTROLSVISIBLE_DURATION}" />
+	
+</mx:VBox>

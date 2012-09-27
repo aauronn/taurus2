@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" implements="mx.controls.listClasses.IDropInListItemRenderer" width="100%" horizontalAlign="center">
+	<mx:Script>
+			<![CDATA[
+				
+				import components.SuperGrid.SuperGrid;
+				import mx.controls.dataGridClasses.DataGridListData;
+				import mx.controls.dataGridClasses.DataGridColumn;
+				import mx.controls.DataGrid;
+				import mx.controls.listClasses.BaseListData;
+			
+				private var _listData:DataGridListData;
+				
+				[Bindable] public var _padre:SuperGrid;
+				
+	 			override public function set data(value:Object):void {
+					if(value!=null){
+						if(this.owner is DataGrid){
+							var myDG:DataGrid=this.owner as DataGrid;
+							var col:DataGridColumn=myDG.columns[_listData.columnIndex];
+							
+							super.data = value;
+							
+							if(this.data["checkedDG"]!=undefined){
+								chb.selected = (this.data["checkedDG"]=="1");
+							}
+						}
+					}
+				} 
+			
+				public function get listData():BaseListData{
+		            return _listData;            
+		        }                   
+		        public function set listData( value : BaseListData ) : void{
+		            _listData = DataGridListData(value);
+		        }
+		        
+				public function getSelected():void{
+					var myDG:DataGrid=this.owner as DataGrid;
+					var col:DataGridColumn=myDG.columns[_listData.columnIndex];
+					
+					if(chb.selected){
+						this.data.checkedDG="1";
+						_padre.agregaItem(this.data);
+					}else{
+						if(_padre.removeItem(this.data)){
+							this.data.checkedDG="0";
+						}else{
+							chb.selected = true;
+						}
+					}
+				}
+				
+			]]>
+		</mx:Script>
+		
+		
+	<mx:CheckBox id="chb" change="getSelected();" />
+</mx:HBox>

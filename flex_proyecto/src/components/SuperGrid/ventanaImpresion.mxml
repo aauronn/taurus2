@@ -1,0 +1,1270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actionscripts:SuperPanel xmlns:actionscripts="actionscripts.*" xmlns:mx="http://www.adobe.com/2006/mxml" 
+	layout="vertical" close="cerrar();" alpha="1.0"  title="Opciones de Impresión" 
+	allowClose="true" allowDrag="true" useHandCursor="true" 
+	keyDown="if(event.keyCode == Keyboard.ESCAPE)cerrar()" creationComplete="{init()}"  show="{showEvent()}"   
+	backgroundColor="#FFFFFF" cornerRadius="9" paddingTop="5" paddingBottom="5" paddingLeft="5" paddingRight="5" 
+	styleName="catalogPanel" backgroundAlpha="1.0" >
+	
+	
+	
+	<mx:Script>
+		<![CDATA[
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Iconos;
+			import actionscripts.MultilineCheckBox;
+			import actionscripts.Serializer;
+			import actionscripts.Utils;
+			import actionscripts.footerDataGrid.SummaryColumn;
+			import actionscripts.footerDataGrid.SummaryFooter;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.controls.CheckBox;
+			import mx.controls.DataGrid;
+			import mx.controls.DateField;
+			import mx.controls.LinkButton;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import mx.controls.listClasses.ListBase;
+			import mx.core.DragSource;
+			import mx.core.UIComponent;
+			import mx.events.*;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.DragManager;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.http.mxml.HTTPService;
+			import mx.rpc.soap.mxml.WebService;
+			import mx.rpc.xml.SimpleXMLDecoder;
+			import mx.utils.ObjectProxy;
+			import mx.utils.ObjectUtil;
+			import mx.validators.Validator;
+			
+			
+			
+			[Bindable] public var Icons:Iconos = new Iconos();
+			[Bindable] public var _padreGrid:SuperGrid;
+			[Bindable] public var txtResultados:String="";			
+			[Bindable] private var ws_copia:HTTPService;			
+			[Bindable] private var arrRegistrosToPrint:ArrayCollection;
+			[Bindable] private var initNumeracion:int=0;
+			
+			
+			//Variables Paginacion
+			//[Bindable] private var offset:int=0;	 // desde que registro inicia
+			[Bindable] private var offset:int=1;
+			[Bindable] private var _regsporpag:int;  //total de registros mostrados por pagina - limit - cuantos regs mostrar
+			
+			
+			[Bindable] public var doLocalHTMLTable:Boolean=false; //Crea la Tabla HTML Localmente y lo envía al PHP
+			
+			
+			// ventana por ser abierta desde un popupbutton, el creationComplete sólo entra 1era vez que se abré, showEvent 2da en adelante
+			private function showEvent():void{
+				hboxContenedor.enabled=true;
+				btnImprimir.visible=true;
+				btnImprimir.includeInLayout=true;
+				btnDescarga.visible=false;
+				btnDescarga.includeInLayout=false;
+				pgbCaramelo.visible=false;
+				pgbCaramelo.includeInLayout=false;
+				chbNumeroDeRenglon.selected=true;
+				chbBgColor.selected=true;
+				
+				rbTipoReporte.selectedValue="PDF";
+				rbOrientacion.selectedValue="P";
+				rbTamanioHoja.selectedValue="legal";
+				
+				rbPaginaActual.selected=true;
+				txtPagInicio.text = "";
+				txtPagTermino.text = "";
+				//offset=0;
+				offset=1;
+					
+				if(vboxColumnasImpresion.numChildren>1){
+					var o:* = vboxColumnasImpresion.getChildAt(0);
+					vboxColumnasImpresion.removeAllChildren();
+					vboxColumnasImpresion.addChild(o);
+					initColumnasImpresion();
+				}
+				initWS();	//Esto lo agregue yo (Luis) para que la fecha de el buro se vea reflejado en la impresion
+			}
+			
+			public function init():void{	
+				try{
+					if(_padreGrid.useLocalDataProvider==false){
+						if(_padreGrid._wsFiltrar==null){
+							loader.msgAviso("No se recibió el WS",3);
+							return;
+						}
+						initWS();	
+					}else{
+						doLocalHTMLTable = true;
+					}
+					
+					btnImprimir.enabled = true;	
+					initColumnasImpresion();
+					revisaHasLabelFunction();	
+				}catch(ex:Error){
+					loader.msgAviso("Error ventanaImpresion->Init()",3);
+				}      
+			}
+			
+			private function revisaHasLabelFunction():void{
+				var _arrColumnas:Array = _padreGrid._arrColumnas;
+				var _arrPropiedades:Array = _padreGrid._arrPropiedades;
+				
+				for(var i:int=0;i<_arrColumnas.length;i++){
+					if(_arrColumnas[i].labelFunction != undefined) {	
+    					doLocalHTMLTable = true;
+    					break;		        					
+    				}else{
+						for(var j:int=0;j<_arrPropiedades.length;j++){
+							if(_arrColumnas[i].dataField && _arrColumnas[i].dataField!="checkedDG" &&   String(_arrPropiedades[j].dataField) == _arrColumnas[i].dataField && _arrPropiedades[j].tipo){
+								switch(String(_arrPropiedades[j].tipo).toUpperCase()){
+									case "N":
+									case "NUMERO":
+									case "NUMBER":
+										if(_arrPropiedades[j].useCurrencyFormatter){
+											doLocalHTMLTable = true;
+											break;
+										}
+										break; 		
+								}
+							} 
+						}
+    				}
+				}
+			}
+			
+			/********** INIT WS *************/
+			private function initWS():void{
+				try{
+					registerClassAlias(" mx.rpc.http.mxml.HTTPService",HTTPService); // Necesario para poder hacer un copy a un HttpService
+					ws_copia = ObjectUtil.copy(_padreGrid._wsFiltrar) as HTTPService;
+					ws_copia.useProxy = false;
+					if(ws_copia==null){
+						loader.msgAviso("ws = null");
+						this.enabled=false;							
+					}else{
+						ws_copia.addEventListener(ResultEvent.RESULT,getNewResultados);
+						ws_copia.addEventListener(FaultEvent.FAULT,faultWS);		
+					}	
+				}catch(ex:Error){
+					loader.msgAviso("Error al generar el WS",3,ex);	
+				}
+			}
+			
+			public function faultWS(event:FaultEvent):void{
+				loader.dp.reintentarHttpService("Problema al recibir los resultados",ws_copia,event);
+			}
+			
+			public function buscaNewRespuestas():void{
+				hboxContenedor.enabled 		= false;
+				btnImprimir.visible			= false;
+				btnImprimir.includeInLayout = false;
+				pgbCaramelo.visible		    = true;
+				pgbCaramelo.includeInLayout = true;
+				
+				ws_copia.request.limit 		= _regsporpag;
+				ws_copia.request.offset 	= offset;
+				ws_copia.request.savequery 	= "si";
+				
+				loader.dp.numWsCargando	= 0;
+				ws_copia.send();
+			}
+			
+			
+			
+			
+			private function getNewResultados(event:ResultEvent):void{
+				loader.dp.removeLoader();
+				try{
+					
+					arrRegistrosToPrint = Utils.getRowsEvent(event);
+					
+					if(arrRegistrosToPrint == null){
+						btnImprimir.visible=true;
+						btnImprimir.includeInLayout=true;
+						hboxContenedor.enabled=true;						
+					}else{
+						var obj:Object = event.result.tablas;
+						if(obj.encrypted){
+							var xml:XML = XML(Utils.decrypt(obj.encrypted, loader.RC4_KEY));												
+							var decoder:SimpleXMLDecoder = new SimpleXMLDecoder(true);
+							var xmlDoc:XMLDocument = new XMLDocument(xml.toXMLString());
+							var resultObj:Object = decoder.decodeXML(xmlDoc);
+							obj = resultObj.tablas;
+						}	
+						var totalRegistros:int = parseInt(obj.tabla0.numrows.total);
+						//initNumeracion 				= offset + 1;
+						initNumeracion 				= offset + 0;
+						
+						if(totalRegistros==0){
+							txtResultados = "Registros del 0 al 0 de 0";
+						}else{
+							if(arrRegistrosToPrint.length == totalRegistros){
+								txtResultados = "Registros del 1 al "+totalRegistros+" de "+totalRegistros+"";
+							}else{
+								//txtResultados = "Registros del "+(offset+1)+" al "+((offset+_regsporpag)>totalRegistros?totalRegistros:offset+_regsporpag)+" de "+totalRegistros+"";
+								txtResultados = "Registros del "+(offset+0)+" al "+((offset+_regsporpag)>totalRegistros?totalRegistros:offset+_regsporpag)+" de "+totalRegistros+"";
+								switch(int(rbPaginasImpresion.selectedValue)){
+									case 1: //Actual
+										
+										break;
+									case 2:	//Todos
+										break;		
+									case 3: //Selección
+										if(txtPagInicio.text!="" && txtPagTermino.text!=""){
+											if(txtPagInicio.text==txtPagTermino.text){
+												txtResultados = "Página "+txtPagInicio.text;
+											}else{
+												txtResultados = "Páginas "+txtPagInicio.text+" a la "+txtPagTermino.text;
+											}
+										}else{
+											if(txtPagInicio.text!=""){				
+												if(int(txtPagInicio.text)==_padreGrid.totalpags){
+													txtResultados = "Página 1";
+												}else{																	
+													txtResultados = "Páginas "+txtPagInicio.text+" a la "+_padreGrid.totalpags;
+												}
+											}else{
+												if(txtPagTermino.text=="1"){
+													txtResultados = "Página 1";
+												}else{
+													txtResultados = "Páginas 1 a la "+txtPagTermino.text;
+												}
+											}
+										}
+										txtResultados += ", Registros del "+(offset)+" al "+((offset+_regsporpag)>totalRegistros?totalRegistros:offset+_regsporpag)+" de "+totalRegistros+"";	
+										break;
+									case 4: //Regs Seleccionados
+										break;			
+								}	
+							}
+						}
+						
+						btnDescarga.visible=true;
+						btnDescarga.includeInLayout=true;
+						if(rbTipoReporte.selectedValue=="PDF"){
+							btnDescarga.setStyle("icon",Iconos.DLPDF);	
+						}else{
+							btnDescarga.setStyle("icon",Iconos.DLXLS);
+						}	
+					}				
+				}catch(ex:Error){
+					btnImprimir.visible=true;
+					btnImprimir.includeInLayout=true;
+					hboxContenedor.enabled=true;
+					loader.dp.reintentarHttpService("Problema al recibir los resultados",ws_copia,ex);
+				}	
+				pgbCaramelo.visible=false;
+				pgbCaramelo.includeInLayout=false;
+			}
+			/********** INIT WS *************/
+			
+			
+			/********** INIT COLUMNAS_IMPRESION *************/
+			private function initColumnasImpresion():void{
+				var columnasGrid:Array = _padreGrid.gridResultados.columns;
+				if(columnasGrid!=null){
+					var numVisibles:int=0;
+					var col:DataGridColumn;
+					var numChecked:int=0;
+					
+					for(var i:int=0;i<columnasGrid.length;i++){
+						col = columnasGrid[i] as DataGridColumn;
+						if(col.dataField=="checkedDG"){
+							numChecked++;
+						}else{
+							if(col.visible==true) numVisibles++;	
+						}
+					}
+					
+					var cargaTodos:Boolean = (numVisibles == (columnasGrid.length-numChecked));
+					(vboxColumnasImpresion.getChildAt(0) as MultilineCheckBox).selected = (cargaTodos);
+					
+					for(var j:int=0;j<columnasGrid.length;j++){						
+						col = columnasGrid[j] as DataGridColumn;	
+						
+						if(col.dataField!="checkedDG"){					
+							var chx:MultilineCheckBox = new MultilineCheckBox();
+							chx.label = col.headerText;
+							chx.width = 160;
+							chx.name  = j.toString();
+							if(!cargaTodos) chx.selected = col.visible; 
+							
+							if(col.headerText == ""){
+								
+								chx.visible = false;
+								chx.includeInLayout = false;
+							}else{							
+								chx.setStyle("fontWeight","bold");
+								chx.addEventListener(Event.CHANGE,colImpresionChange);	
+							}													
+							vboxColumnasImpresion.addChild(chx);						
+						}
+					}
+				}		
+			}
+			/********** INIT COLUMNAS_IMPRESION *************/
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			public function cerrar():void{
+            	PopUpManager.removePopUp(this);
+         	}  
+         	
+			
+           
+           
+           
+           
+           
+          	/*********** VALIDACIONES ANTES DE GENERAR REPORTE **************/
+            private function validaFiltros():void{
+            	var msg:String="";
+            	
+            	/****** Validando Intervalo de Paginas *******/
+            	if(int(rbPaginasImpresion.selectedValue)==3){
+            		if(txtPagInicio.text=="" && txtPagTermino.text==""){
+            			msg="Ingresa la página de inicio y/o termino.";
+            		}else{
+            			if(txtPagInicio.text!="" && int(txtPagInicio.text)<1){
+            				if(msg!="") msg+="\n\n";
+            				msg+="La página de inicio ["+txtPagInicio.text+"] debe ser mayor a 0.";
+            			}
+            			if(txtPagTermino.text!="" && int(txtPagTermino.text)<1){
+            				if(msg!="") msg+="\n\n";
+            				msg+="La página de termino ["+txtPagInicio.text+"] debe ser mayor a 0.";
+            			}
+            			if(txtPagTermino.text!="" && int(txtPagTermino.text) > _padreGrid.totalpags){
+            				if(msg!="") msg+="\n\n";
+            				msg+="La página de termino ["+txtPagTermino.text+"] no puede ser mayor al número de páginas disponibles ["+_padreGrid.totalpags+"].";
+            			}
+	            		if(txtPagInicio.text!="" && txtPagTermino.text!=""){
+	            			if(int(txtPagTermino.text) < int(txtPagInicio.text)){
+	            				if(msg!="") msg+="\n\n";
+	            				msg="La página de termino ["+txtPagTermino.text+"] no puede ser menor a la página de inicio ["+txtPagInicio.text+"].";
+	            			} 
+	            		}
+	            	}
+            	}
+            	
+            	/****** Validando Columnas a Imprimir *******/
+            	var existe:Boolean=false;
+				for(var i:int=0;i<vboxColumnasImpresion.numChildren;i++){
+					if((vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox).selected==true){
+						existe=true;
+						break;
+					}										
+				}	
+				if(!existe){
+					if(msg!="") msg+="\n\n";
+	            	msg="Seleccione las columnas a imprimir.";
+				}	
+				
+				if(msg!=""){
+					loader.msgAviso(msg,2);
+				}else{
+					validaSeleccionIntervalo();
+				}
+            }
+            
+            
+            private function validaSeleccionIntervalo():void{
+            	switch(int(rbPaginasImpresion.selectedValue)){
+					case 1: //Actual
+						// Si tiene labelfunctions hacer tabla en Flex y enviar a PHP
+						if(doLocalHTMLTable){
+							arrRegistrosToPrint = _padreGrid.gridResultados.dataProvider as ArrayCollection;
+							//initNumeracion = _padreGrid.offset + 1;
+							initNumeracion = _padreGrid.offset + 0;
+							txtResultados = "R" + String(_padreGrid.txtResultados.text.split(", R")[1]).replace(")","") + "";
+							generaReporte();
+						}else{
+							// Si no tiene labelfunctions PHP se encarga de hacer la tabla
+							initWS();						
+							_regsporpag = ws_copia.request.limit;
+							offset      = ws_copia.request.offset;
+							buscaNewRespuestas();
+						}
+						
+						//loader.msgAviso("Copiando:\n\nlimit: "+_regsporpag+"\noffset: "+offset);
+						
+						break;
+					case 2:	//Todos
+						_regsporpag = 0;
+						//offset = 0;
+						offset = 1;
+						//initNumeracion = 1;
+						initNumeracion = 1;
+							
+						if(doLocalHTMLTable){
+							buscaNewLocalRespuestas();
+						}else{							
+							buscaNewRespuestas();
+						}
+						break;		
+					case 3: //Selección
+						if(txtPagInicio.text==txtPagTermino.text){ // de 3 a 3
+							if(int(txtPagInicio.text) == _padreGrid.paginaActual){
+								arrRegistrosToPrint = _padreGrid.gridResultados.dataProvider as ArrayCollection;
+								//initNumeracion = _padreGrid.offset + 1;
+								initNumeracion = _padreGrid.offset + 0;
+								generaReporte();
+							}else{
+								offset = ((parseInt(txtPagInicio.text)-1)*_padreGrid.regsporpag); // 3-1 = 2*100  = 200
+								_regsporpag = _padreGrid.regsporpag + 0;
+								if(doLocalHTMLTable){
+									buscaNewLocalRespuestas();
+								}else{							
+									buscaNewRespuestas();
+								}	
+							}
+						}else{
+							if(txtPagInicio.text==""){ // de - a 3
+								//offset=0; //de cual reg comenzar
+								offset=1; //de cual reg comenzar
+								_regsporpag = (int(txtPagTermino.text)*_padreGrid.regsporpag);  //3  - 300;  cuantos regs mostrar
+							}else{
+								if(txtPagTermino.text==""){ // de 3 a -
+									offset = ((parseInt(txtPagInicio.text)-1)*_padreGrid.regsporpag); //3-1 = 2*100 = 200;
+									_regsporpag = ((_padreGrid.totalpags-int(txtPagInicio.text)+1)*_padreGrid.regsporpag); // 5-3+1 = 3*100 = 300																
+								}else{
+									if(txtPagInicio.text==txtPagTermino.text){
+										
+									}else{								
+										// de 2 a 4
+										offset= ((parseInt(txtPagInicio.text)-1)*_padreGrid.regsporpag); // 2   2-1= 1*100 = 100
+										_regsporpag = ( (int(txtPagTermino.text)-int(txtPagInicio.text)+1) * _padreGrid.regsporpag);	// 4   4-2+1= 3*100  = 300
+									}
+								}							
+							}
+							if(doLocalHTMLTable){
+								buscaNewLocalRespuestas();
+							}else{							
+								buscaNewRespuestas();
+							}
+						}	
+						break;
+					case 4: //Regs Seleccionados
+						arrRegistrosToPrint = _padreGrid.arrRegistrosSeleccionados;
+						initNumeracion = 1;
+						txtResultados = "Registros seleccionados "+arrRegistrosToPrint.length;
+						generaReporte();				
+				}	
+            }
+            
+            
+            
+            private function buscaNewLocalRespuestas():void{	
+            	hboxContenedor.enabled 		= false;
+				btnImprimir.visible			= false;
+				btnImprimir.includeInLayout = false;
+				pgbCaramelo.visible		    = true;
+				pgbCaramelo.includeInLayout = true;
+				
+							
+				var _arrNormas:Array = _padreGrid.getArrNormas();
+				//var arrRegistrosToPrint:ArrayCollection = new ArrayCollection();
+				var strBusquedaUtilizada:String = _padreGrid.strBusquedaUtilizada;
+				var _arrColumnas:Array = _padreGrid._arrColumnas;
+				
+				
+				if(_padreGrid.strBusquedaUtilizada=="" && _arrNormas.length==0){	
+					// Si no tiene texto ni normas mostrar todo				
+					arrRegistrosToPrint = ObjectUtil.copy(_padreGrid.arrLocalResultados) as ArrayCollection;
+						Alert.show(Utils.print_r(arrRegistrosToPrint),"Registros");
+				}else{
+					
+					var flagT:Boolean = false;
+					var flagN:Boolean = false;
+					var item:Object;
+					var copyLocal:ArrayCollection = ObjectUtil.copy(_padreGrid.arrLocalResultados) as ArrayCollection;
+					
+					
+					for(var i:int=0; i<copyLocal.length; i++){
+						flagT = (strBusquedaUtilizada==""); //Si no tiene texto mostrar
+						flagN = (_arrNormas.length==0); //Si no tiene normas mostrar
+						item = copyLocal[i];
+						
+						if(!flagT){
+							for(var j:int=0;j<_arrColumnas.length;j++){
+								if(!flagT && _arrColumnas[j].dataField && _arrColumnas[j].dataField!="checkedDG" && item[_arrColumnas[j].dataField]){
+									if(String(item[_arrColumnas[j].dataField]).toLowerCase().search(Utils.trim(strBusquedaUtilizada).toLowerCase()) != -1){
+										flagT = true;
+									}
+									//return item[selectedName].match(new RegExp(searchField.text, 'i'))
+								}
+							}	
+						}
+						
+						
+						if(!flagN){
+							var c:String;
+							var t:String;
+							var fInicio:Date;
+							var fTermino:Date;
+							
+							for(var k:int=0; k<_arrNormas.length; k++){
+								c = item[_arrNormas[k]["campo"]];
+								t = _arrNormas[k]["texto"];
+								
+								switch(int(_arrNormas[k]["where"])){
+									case 2:
+										if(!flagN && String(c).toLowerCase().search( Utils.trim(t).toLowerCase() ) == -1){
+											flagN = true; // != 
+										} 
+										break; 
+										
+									// Numericas
+									case 9:  if(!flagN && c!="" && t!="" && int(c) == int(t)) flagN = true; break; // =										
+									case 10: if(!flagN && c!="" && t!="" && int(c) < int(t)) flagN = true; break; // <
+									case 11: if(!flagN && c!="" && t!="" && int(c) <= int(t)) flagN = true; break; // <=
+									case 12: if(!flagN && c!="" && t!="" && int(c) > int(t)) flagN = true; break; // >
+									case 13: if(!flagN && c!="" && t!="" && int(c) >= int(t)) flagN = true; break; // >=
+									
+									// Fechas
+									case 14: if(!flagN && c!="" && t!="" && c==t) flagN = true; break; // =
+									case 15:
+										if(!flagN && c!="" && t!=""){
+											fInicio  = DateField.stringToDate(c,"DD/MM/YYYY");
+											fTermino = DateField.stringToDate(t,"DD/MM/YYYY"); 										
+											if(Utils.compareDates(fInicio,fTermino)<=0){ 
+												flagN = true; // >=
+											}
+										}
+										break;
+										
+									case 16: 
+										if(!flagN && c!="" && t!=""){
+											fInicio  = DateField.stringToDate(c,"DD/MM/YYYY");
+											fTermino = DateField.stringToDate(t,"DD/MM/YYYY"); 										
+											if(Utils.compareDates(fInicio,fTermino)>=0){ 
+												flagN = true; // <=
+											}
+										}
+										break;
+										
+									default:
+										if(!flagN && String(c).toLowerCase().search( Utils.trim(t).toLowerCase() ) != -1){
+											flagN = true;
+										}
+										
+									/*
+									var dateString: String = " 25/02/2009";
+									var d:date= DateField.stringToDate(dateString,"DD/MM/YYYY");
+									if(Utils.compareDates(fecha1,fecha2)==-1){
+             							fecha1.errorString="La fecha de inicio es mayor que la fecha de vencimiento.";
+         							}*/  
+								}
+							}
+						}
+						
+						if(flagT && flagN){
+							arrRegistrosToPrint.addItem(item);	
+						}
+					}						
+				}
+				
+				
+				
+				
+				
+				
+				
+				
+					var totalRegistros:int = arrRegistrosToPrint.length;
+					//initNumeracion = offset + 1;
+					initNumeracion = offset + 0;
+					
+					
+					
+					
+					if(totalRegistros==0){
+						txtResultados = "Registros del 0 al 0 de 0";
+					}else{
+						/*if(arrRegistrosToPrint.length == totalRegistros){
+							txtResultados = "Registros del 1 al "+totalRegistros+" de "+totalRegistros+"";
+						}else{*/
+						//txtResultados = "Registros del "+(offset+1)+" al "+((offset+_regsporpag)>totalRegistros?totalRegistros:offset+_regsporpag)+" de "+totalRegistros+"";	
+						txtResultados = "Registros del "+(offset)+" al "+((offset+_regsporpag)>totalRegistros?totalRegistros:offset+_regsporpag)+" de "+totalRegistros+"";
+							switch(int(rbPaginasImpresion.selectedValue)){
+								case 1: //Actual
+									
+									break;
+								case 2:	//Todos
+									break;		
+								case 3: //Selección
+								
+									// Obteniendo total de registros y total de paginas
+									//totalregs = arrRegistrosToPrint.length;
+									//totalpags = (int(totalregs/regsporpag)+1);
+									
+									
+									
+									// Regs x Pagina diferente de Todos cortar al numero de registros a mostrar
+									if(_regsporpag != 0){
+										// Detalle de paginación					
+										//var _numPrimerRegistro:int = (totalRegistros==0 ? 0 : (offset+1));
+										var _numPrimerRegistro:int = (totalRegistros==0 ? 0 : (offset+0));
+										var _numUltimoRegistro:int = ((offset+_regsporpag)>totalRegistros ? totalRegistros : offset+_regsporpag);
+										//txtResultados.text = "(Página "+paginaActual+" de "+totalpags+(totalpags==1?" Página, ":" Páginas, ")+"Registros del "+_numPrimerRegistro+" al "+_numUltimoRegistro+" de "+totalregs+")";
+										
+										var _arr:Array = arrRegistrosToPrint.toArray();
+										arrRegistrosToPrint = new ArrayCollection(_arr.slice(_numPrimerRegistro - 1, _numUltimoRegistro));					
+									}
+								
+								
+									
+								
+									if(txtPagInicio.text!="" && txtPagTermino.text!=""){
+										if(txtPagInicio.text==txtPagTermino.text){
+											txtResultados = "Página "+txtPagInicio.text;
+										}else{
+											txtResultados = "Páginas "+txtPagInicio.text+" a la "+txtPagTermino.text;
+										}
+									}else{
+										if(txtPagInicio.text!=""){				
+											if(int(txtPagInicio.text)==_padreGrid.totalpags){
+												txtResultados = "Página 1";
+											}else{																	
+												txtResultados = "Páginas "+txtPagInicio.text+" a la "+_padreGrid.totalpags;
+											}
+										}else{
+											if(txtPagTermino.text=="1"){
+												txtResultados = "Página 1";
+											}else{
+												txtResultados = "Páginas 1 a la "+txtPagTermino.text;
+											}
+										}
+									}
+									//txtResultados += ", Registros del "+(offset+1)+" al "+((offset+_regsporpag)>totalRegistros?totalRegistros:offset+_regsporpag)+" de "+totalRegistros+"";
+									txtResultados += ", Registros del "+(offset+0)+" al "+((offset+_regsporpag)>totalRegistros?totalRegistros:offset+_regsporpag)+" de "+totalRegistros+"";
+									break;
+								case 4: //Regs Seleccionados
+									break;			
+							}	
+						//}
+					}
+					
+					btnDescarga.visible=true;
+					btnDescarga.includeInLayout=true;
+					if(rbTipoReporte.selectedValue=="PDF"){
+						btnDescarga.setStyle("icon",Iconos.DLPDF);	
+					}else{
+						btnDescarga.setStyle("icon",Iconos.DLXLS);
+					}
+					pgbCaramelo.visible=false;
+					pgbCaramelo.includeInLayout=false;
+				
+			}
+            /*********** VALIDACIONES ANTES DE GENERAR REPORTE **************/
+            
+            
+            
+            
+            
+            
+            private function generaReporte():void{	    
+				try{
+					var variables:URLVariables = new URLVariables();
+					variables.tiporeporte      = rbTipoReporte.selectedValue;
+					variables.hoja_tamanio     = rbTamanioHoja.selectedValue;
+					variables.hoja_orientacion = rbOrientacion.selectedValue;
+					variables.tamanioLetra     = hsTamanio.value;
+					variables.from             = "Tabla";
+					variables.tituloreporte    = _padreGrid.tituloReporte;
+					variables.txtresultado 	   = txtResultados; //Registros del 1 al 500
+					variables.opcion_extra     = _padreGrid.opcionExtraReporte;
+					
+					
+					
+					
+					variables.chbBorder = chbBorder.selected ? "1" : "0";
+					variables.chbCellPadding = chbCellPadding.selected ? "1" : "0";
+					//variables.chbCellSpacing = chbCellSpacing.selected ? "1" : "0";
+					variables.chbNumeroDeRenglon = chbNumeroDeRenglon.selected ? "1" : "0";
+					variables.initNumeracion = initNumeracion;
+					variables.chbBgColor = chbBgColor.selected ? "1" : "0";
+					variables.chbNumeroDeRenglon = chbNumeroDeRenglon.selected ? "1" : "0";
+					variables.chbFooter = chbFooter.selected ? "1" : "0";
+					
+					
+					var arrColumnasImprimir:Array = getColumnsToPrint();
+			 		if(arrColumnasImprimir.length==0) return;			 		
+			 		var columnasHeaders:Array = new Array();			 	
+					var columnasTabla:Array = new Array();
+					for(var i:int = 0;i<_padreGrid.gridResultados.columns.length;i++) {
+		        		if(arrColumnasImprimir.indexOf(i) != -1){
+		        			if(_padreGrid.gridResultados.columns[i].headerText != undefined) {
+		        				columnasHeaders.push(_padreGrid.gridResultados.columns[i].headerText);
+			        		}else{	        			
+			        			columnasHeaders.push(_padreGrid.gridResultados.columns[i].dataField);	        			
+			        		}
+			        		columnasTabla.push(_padreGrid.gridResultados.columns[i].dataField ? _padreGrid.gridResultados.columns[i].dataField : "");
+			        	}
+		        	}
+	        		variables.columnasHeaders = Serializer.serialize(columnasHeaders);
+	        		variables.columnasTabla   = Serializer.serialize(columnasTabla);
+	        		variables.arrFooters      = Serializer.serialize(getFootersValues());
+					
+					
+					/* "] selected ? 1 : 0
+		$_POST["chbCellPadding"] selected?"5":"0"
+		$_POST["chbCellSpacing"] selected?"2":"0"
+		$_POST["chbNumeroDeRenglon"] == 1
+		$_POST["initnumeracion"] numeric
+		
+		$_POST["columnasHeaders"] is_array
+		$_POST["columnasTabla"] is_array
+		
+		$_POST["chbBgColor"] selected == 1
+		$_POST["chbNumeroDeRenglon"] selected == 1
+		$_POST["chbFooter"] selected == 1
+					*/
+					
+					
+					
+					
+					
+					
+					var arr:Array = new Array();
+					var obj:Object=new Object();
+					
+					
+					if(doLocalHTMLTable){
+						if(rbTipoReporte.selectedValue=="PDF" || rbTipoReporte.selectedValue=="EXCEL"){
+							obj.tabla_resultados = convertDGToHTMLTable(_padreGrid.gridResultados);
+						}else{
+							obj.tabla_resultados = convertDGToCSV(_padreGrid.gridResultados);
+						}					
+						if(obj.tabla_resultados == "-1") return;	
+					}else{
+						obj.tabla_resultados = "query";
+					}
+					
+					
+					// Tabla Header Opcional
+					try{
+						if(_padreGrid.ReporteHeaderTableFn!=null){
+							obj.tabla_header = _padreGrid.ReporteHeaderTableFn();
+						}
+					}catch(ex:Error){						
+					}
+					
+					// Tabla Footer Opcional
+					try{
+						if(_padreGrid.ReporteFooterTableFn!=null){
+							obj.tabla_footer = _padreGrid.ReporteFooterTableFn();
+						}
+					}catch(ex:Error){						
+					}
+					
+					
+					
+					obj.numcolumnas = getColumnsToPrint().length;
+					if(chbNumeroDeRenglon.selected) obj.numcolumnas++;
+					
+					if(_padreGrid.tabla_informativa!=""){
+						obj.tabla_informativa = _padreGrid.tabla_informativa;
+					}
+					
+					if(chbBusquedaUtilizada.enabled && chbBusquedaUtilizada.selected){
+						obj.tabla_filtros = filtrosToTHMLTable();
+					}
+					
+					arr.push(obj);
+					variables.arrtablas = Serializer.serialize(arr);
+					
+					
+					var u:URLRequest = new URLRequest(_padreGrid.urlReporte);	
+					u.data = variables; //Pass the variables
+					u.method = URLRequestMethod.POST; //Don't forget that we need to send as POST
+					
+			        navigateToURL(u,"_blank");
+			        callLater(cursorManager.removeBusyCursor);		  		
+			 	}catch(e:Error){
+					loader.msgAviso("Ocurrió un problema al generar el Reporte",3,e);
+				}
+			}
+			
+		
+			public function getFootersValues():Array{
+				var arrValues:Array = new Array();
+				try{
+					if(_padreGrid.gridResultados.footer==null) return new Array();
+					var arr:Array = _padreGrid.gridResultados.footer as Array;					
+					var msg:String = "";
+					var i:int=1;
+					
+					registerClassAlias("actionscripts.footerDataGrid.SummaryColumn", SummaryColumn);
+					
+					for each (var child:UIComponent in arr)
+			        {
+			            if(!(child is SummaryFooter)){
+			                loader.msgAviso("Sólo se permiten componentes tipo [SummaryFooter]",2);
+			                break;
+			            }
+			            
+			           
+			            var childFooter:SummaryFooter = child as SummaryFooter;
+			            if(childFooter.columns!=null){
+				            var arrC:Array = childFooter.columns;
+				            for(var j:int=0;j<arrC.length;j++){
+				            	var _summaryC:SummaryColumn = arrC[j] as SummaryColumn;
+				            	if(_summaryC.column.visible==true && _summaryC.checkedDG==false){
+					            	if(_summaryC.labelFunction != null){
+					            		_summaryC.useCustomDataProvider = true;		
+					            		//var arrOriginal:Object = _summaryC.dataProvider;
+					            		_summaryC.customDataProvider = arrRegistrosToPrint; 			   
+					            		 			            		
+					            		var copyColumn:SummaryColumn = ObjectUtil.copy(_summaryC) as SummaryColumn;
+					            		//copyColumn.customDataProvider = arrRegistrosToPrint;
+					            		copyColumn.useCustomDataProvider=true;
+					            		copyColumn.labelFunction = _summaryC.labelFunction;
+					            		//copyColumn.useCustomDataProvider=true;
+					            		//copyColumn.label = "hola mundo";
+					            		arrValues.push(copyColumn.labelFunction(copyColumn.column));
+					            		_summaryC.useCustomDataProvider = false;
+					            		//_summaryC.dataProvider = arrOriginal;
+					            		//arrValues.push(_summaryC.labelFunction(_summaryC.column));
+					            		//data=dg.columns[k].labelFunction(arrRegistrosToPrint.getItemAt(j),dg.columns[k]);					            		
+						            }else{
+						            	arrValues.push(_summaryC.label);	
+						            }
+						        }
+				            }	
+				        }            
+			        }			        
+				}catch(ex:Error){
+					arrValues = new Array();
+					loader.msgAviso("Error->verFooters",3,ex);
+				}
+				return arrValues;
+			}
+			
+			
+			// Evento change para checkbox de columnas a imprimir
+			private function colImpresionChange(event:Event):void{
+				if(event.currentTarget.name=="todas"){
+					if((vboxColumnasImpresion.getChildAt(0) as MultilineCheckBox).selected == true){
+						if(vboxColumnasImpresion.numChildren>1){
+							for(var i:int=1;i<vboxColumnasImpresion.numChildren;i++){
+								(vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox).selected = false;			
+							}	
+						}
+					}	
+				}else{
+					(vboxColumnasImpresion.getChildAt(0) as MultilineCheckBox).selected = false;	
+				}
+			}
+			
+			
+			
+			
+			
+			/********** Convert ***********/
+			private function getColumnsToPrint():Array{
+				var arr:Array=new Array();
+				var i:int=0;
+				
+				if((vboxColumnasImpresion.getChildAt(0) as MultilineCheckBox).selected == true){
+					if(vboxColumnasImpresion.numChildren>1){
+						for(i=1;i<vboxColumnasImpresion.numChildren;i++){
+							if((vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox).visible==true){
+								arr.push(int((vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox).name));
+							}										
+						}	
+					}
+				}else{
+					for(i=1;i<vboxColumnasImpresion.numChildren;i++){
+						if((vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox).selected == true){
+							if((vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox).visible==true){
+								arr.push(int((vboxColumnasImpresion.getChildAt(i) as MultilineCheckBox).name));
+							}
+						}			
+					}
+				}
+				if(arr.length==0) loader.msgAviso("Seleccione las columnas a imprimir",2);
+				return arr;
+			}	
+			
+			
+			
+			private function filtrosToTHMLTable():String{
+				var html:String = "";
+				var txt:String = "";
+				var arrNormas:Array = _padreGrid.getArrNormas();		
+				var num:int = 1;
+				
+				 
+				html = "<table border='"+(chbBorder.selected?"1":"0")+"' width='100%' cellpadding='"+(chbCellPadding.selected?"5":"0")+"' cellspacing='0' >" +
+						"	<tr width='100%' bgcolor='#CFCFCF' >" + 
+						"		<th align='center' colspan='5'>Filtro Realizado</th>" + 
+						"	</tr>";
+				
+				if(_padreGrid.strBusquedaUtilizada!=""){
+					txt = num+") Busqueda General: '"+_padreGrid.strBusquedaUtilizada+"'.";
+					num++;
+				}	
+					
+				for(var i:int=0;i<arrNormas.length;i++){
+					if(txt != "") txt += "<br>";
+				 	txt += num+") "+arrNormas[i].campo_desc+" "+arrNormas[i].where_desc+" '"+arrNormas[i].texto+"'.";				 	
+				 	num++; 				 	
+				 }		
+						
+				html += "	<tr width='100%' >" + 
+							"		<td align='left' colspan='5'>"+txt+"</td>" +
+							"</tr>";
+									 
+				html += "</table>";
+						
+				return html;				
+			}
+			
+			
+			 private function convertDGToHTMLTable(dg:*):String {
+			 	var arrColumnasImprimir:Array = getColumnsToPrint();
+			 	if(arrColumnasImprimir.length==0) return "-1";
+			 	
+			 	var font:String = dg.getStyle('fontFamily');
+	        	var size:String = dg.getStyle('fontSize');
+	        	var str:String = '';
+	        	var colors:String = '';
+	        	var style:String = "";"style='font-family:"+font+";font-size:"+size+"pt;'";				
+	        	var hcolor:Array;
+	        	var headers:String="";
+	        	
+	        	if(dg.getStyle("headerColor") != undefined) {
+	        		hcolor = [dg.getStyle("headerColor")];
+	        	} else {
+	        		hcolor = dg.getStyle("headerColors");
+	        	}				
+	        	if(!hcolor){
+	        		hcolor=new Array();
+	        		hcolor.push('CFCFCF');
+	        	}
+	        
+	        
+	        
+	        	str+= "<table border='"+(chbBorder.selected?"1":"0")+"' width='100%' cellpadding='"+(chbCellPadding.selected?"5":"0")+"' cellspacing='0' >";
+	        	
+	        	str += "<thead>";
+	        	//// Headers
+	        	headers = "<tr width='100%' bgcolor='#CFCFCF' >";	        	
+				if(chbNumeroDeRenglon.selected){
+					headers += "<th align='center' "+style+">#</th>";
+				}					        					
+	        	for(var i:int = 0;i<dg.columns.length;i++) {
+	        		if(arrColumnasImprimir.indexOf(i) != -1){
+		        		colors = dg.getStyle("themeColor");	
+		        		if(dg.columns[i].headerText != undefined) {
+		        			headers += "<th "+style+">"+dg.columns[i].headerText+"</th>";
+		        		} else {	        			
+		        			headers += "<th "+style+">"+dg.columns[i].dataField+"</th>";	        			
+		        		}
+		        	}
+	        	}	        	
+	        	headers += "</tr>";
+	        	
+	        	str += headers + "</thead><tbody>";
+	        	
+	        	
+	        	
+	        	colors = dg.getStyle("alternatingRowColors");
+	        	
+	        	var data:String="";
+	        	var data2:String="";
+	        	var porc:Number;
+	        	
+	        	//// Body
+	        	for(var j:int =0;j<arrRegistrosToPrint.length;j++) {
+	        		var bgcolor:String= (chbBgColor.selected && j%2!=0) ? " bgcolor='#DEDEDE' " : "";
+	        			
+	        		str+="<tr width='100%' "+bgcolor+">";
+	        		if(chbNumeroDeRenglon.selected){
+	        			str += "<td width='20' "+style+">"+initNumeracion+"</td>";
+	        			initNumeracion++;
+	        		}
+	        		for(var k:int=0; k < dg.columns.length; k++) {	
+	        			if(arrColumnasImprimir.indexOf(k) != -1){		
+		        			if(arrRegistrosToPrint.getItemAt(j) != null) {
+		        				if(dg.columns[k].labelFunction != undefined) {	
+		        					data=dg.columns[k].labelFunction(arrRegistrosToPrint.getItemAt(j),dg.columns[k]);		        					
+		        				} else {
+		        					data=arrRegistrosToPrint.getItemAt(j)[dg.columns[k].dataField];
+		        				}
+		        				if(!data) data="";   
+	        					data = data.replace("\r","<br />");     					
+	        					str += "<td width='"+Math.ceil(dg.columns[k].width)+"' "+style+">"+data+"</td>";
+		        			}
+		        		}
+	        		}     		
+	        		str += "</tr>";
+	        	}	        	
+	        	
+	        	if(chbFooter.selected){
+	        		var arrFooters:Array = getFootersValues();
+	        		if(arrFooters.length>0){
+	        			str += "<tr width='100%' bgcolor='#CFCFCF' >";	
+	        			if(chbNumeroDeRenglon.selected) str += "<td width='20'>&nbsp;</td>";
+	        		
+	        			for(var n:int=0; n<arrFooters.length; n++){
+	        				str += "<th>"+arrFooters[n]+"</th>";			
+	        			}
+	        			
+	        			str += "</tr>";
+	        		}else{
+	        			
+	        			
+	        			str += "<tr width='100%' bgcolor='#CFCFCF' >";	        	
+						if(chbNumeroDeRenglon.selected){
+							str += "<th align='center' "+style+">#</th>";
+						}					        					
+			        	for(var c:int = 0; c<dg.columns.length; c++) {
+			        		if(arrColumnasImprimir.indexOf(c) != -1){
+				        		colors = dg.getStyle("themeColor");	
+				        		if(dg.columns[c].headerText != undefined) {
+				        			str += "<th "+style+">"+dg.columns[c].headerText+"</th>";
+				        		} else {	        			
+				        			str += "<th "+style+">"+dg.columns[c].dataField+"</th>";	        			
+				        		}
+				        	}
+			        	}	        	
+			        	str += "</tr>";
+	        		}
+	        		str += headers;
+	        	}
+	        	
+	        	str += "</tbody></table>";
+	        	return str;
+	        }	
+	        
+	        
+	        
+	        private function convertDGToCSV(dg:*):String {
+			 	var arrColumnasImprimir:Array = getColumnsToPrint();
+			 	if(arrColumnasImprimir.length==0) return "-1";
+			 	
+			 	
+			 	var str:String = '';
+			 	var separator:String = ",";
+	        
+	        
+	        	
+	        	//// Headers
+	        	if(chbNumeroDeRenglon.selected){
+					str = "\"#\""+separator;
+				}					        					
+	        	for(var i:int = 0;i<dg.columns.length;i++) {
+	        		if(arrColumnasImprimir.indexOf(i) != -1){
+		        		if(dg.columns[i].headerText != undefined) {
+		        			str += "\"" + dg.columns[i].headerText + "\"" + separator;		        			
+		        		} else {
+		        			str += "\"" + dg.columns[i].dataField + "\"" + separator;
+		        		}
+		        	}
+	        	}	 
+	        	str += "\r\n";
+	        	       	
+	        	       	
+	        	       	
+	        	       	
+	        	       	
+	        	       	
+	        	
+	        	
+	        	//// Body
+	        	var data:String="";
+	        	for(var j:int =0;j<arrRegistrosToPrint.length;j++) {
+	        		if(chbNumeroDeRenglon.selected){
+	        			str += "\""+initNumeracion+"\""+separator;
+	        			initNumeracion++;
+	        		}
+	        		for(var k:int=0; k < dg.columns.length; k++) {	
+	        			if(arrColumnasImprimir.indexOf(k) != -1){		
+		        			if(arrRegistrosToPrint.getItemAt(j) != null) {
+		        				if(dg.columns[k].labelFunction != undefined) {	
+		        					data=dg.columns[k].labelFunction(arrRegistrosToPrint.getItemAt(j),dg.columns[k]);		        					
+		        				} else {
+		        					data=arrRegistrosToPrint.getItemAt(j)[dg.columns[k].dataField];
+		        				}
+		        				if(!data) data="";   
+	        					//data = data.replace("\r","<br />");
+	        					str += "\"" + data + "\"" + separator;	
+		        			}
+		        		}		        		
+	        		}     		
+	        		str += "\r\n";	        		
+	        	}	        	
+	        	
+	        	
+	        	
+	        	// Footers
+	        	if(chbFooter.selected){
+	        		var arrFooters:Array = getFootersValues();
+	        		
+	        		// Si hay DGFooters ponerlos
+	        		if(arrFooters.length>0){
+	        			if(chbNumeroDeRenglon.selected){
+	        				str += "\"#\""+separator;	
+	        			} 
+	        			
+	        			for(var n:int=0; n<arrFooters.length; n++){
+	        				str += "\"" + arrFooters[n] + "\"" + separator;		
+	        			}
+	        			
+	        			str += "\r\n";	  
+	        		}else{
+	        			
+	        			// Repetir los Headers
+	        			if(chbNumeroDeRenglon.selected){
+							str += "\"#\""+separator;
+						}					        					
+			        	for(var c:int = 0; c<dg.columns.length; c++) {
+			        		if(arrColumnasImprimir.indexOf(c) != -1){
+				        		if(dg.columns[c].headerText != undefined) {
+				        			str += "\"" + dg.columns[c].headerText + "\"" + separator;		        			
+				        		} else {
+				        			str += "\"" + dg.columns[c].dataField + "\"" + separator;
+				        		}
+				        	}
+			        	}	 
+	        			str += "\r\n";
+	        		}
+	        	}
+	        	
+	        	
+	        	return str;
+	        }
+		]]>
+	</mx:Script>	
+	
+	<mx:RadioButtonGroup id="rbTipoReporte" />
+	<mx:RadioButtonGroup id="rbOrientacion" />
+	<mx:RadioButtonGroup id="rbTamanioHoja" />
+	<mx:RadioButtonGroup id="rbPaginasImpresion" />
+	
+	<mx:VBox  width="100%" cornerRadius="9" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5" borderStyle="solid">
+		<mx:HBox id="hboxContenedor" width="100%">
+			<mx:VBox>
+				<mx:HBox backgroundColor="#DEDEDE" backgroundAlpha=".5" borderStyle="solid" cornerRadius="9" width="100%" horizontalAlign="center"><mx:Label text="Intervalo de Páginas" fontWeight="bold" /></mx:HBox>
+				<mx:HRule width="100%" />
+				<mx:RadioButton group="{rbPaginasImpresion}" id="rbPaginaActual" selected="true" value="1" label="Actual" fontWeight="bold" /> 
+				<mx:RadioButton group="{rbPaginasImpresion}" value="2" label="Todas" fontWeight="bold" />
+				<mx:RadioButton group="{rbPaginasImpresion}" value="3" label="Selección" fontWeight="bold" />
+				<mx:HBox enabled="{int(rbPaginasImpresion.selectedValue)==3}" paddingLeft="15" >
+					<mx:TextInput id="txtPagInicio" width="50" restrict="0-9" /> <mx:Label text="a" /> <mx:TextInput id="txtPagTermino" width="50" restrict="0-9" />
+				</mx:HBox>
+				<mx:RadioButton group="{rbPaginasImpresion}" enabled="{_padreGrid.arrRegistrosSeleccionados.length>0}" value="4" label="Registros Seleccionados [{_padreGrid.arrRegistrosSeleccionados.length.toString()}]" fontWeight="bold" />
+			</mx:VBox>
+			
+			<mx:VRule height="100%" width="5"  />
+			
+			<mx:VBox>
+				<mx:HBox backgroundColor="#DEDEDE" backgroundAlpha=".5" borderStyle="solid" cornerRadius="9" width="100%" horizontalAlign="center"><mx:Label text="Columnas a Imprimir" fontWeight="bold" /></mx:HBox>
+				<mx:HRule width="100%" />				
+				<mx:VBox id="vboxColumnasImpresion" width="180" height="140" verticalGap="1">
+					<actionscripts:MultilineCheckBox name="todas" change="{colImpresionChange(event)}" width="160" label="Todas" fontWeight="bold" />				
+				</mx:VBox>	
+			</mx:VBox>
+			
+			<mx:VRule height="100%" width="5"  />
+			
+			<mx:VBox>
+				<mx:HBox backgroundColor="#DEDEDE" backgroundAlpha=".5" borderStyle="solid" cornerRadius="9" width="100%" horizontalAlign="center"><mx:Label text="Opciones de Reporte" fontWeight="bold" /></mx:HBox>
+				<mx:HRule width="100%" />
+				<!--<mx:CheckBox id="chbResultados"     label="Ver número de registros" selected="true" fontWeight="bold" />-->
+				
+				<mx:VBox width="190" height="140" verticalGap="1" horizontalScrollPolicy="off">
+	            	<mx:CheckBox id="chbBusquedaUtilizada"  label="Ver busqueda utilizada" fontWeight="bold" enabled="{(_padreGrid.existenFiltros())}" />
+	            	<mx:CheckBox id="chbNumeroDeRenglon"    label="Ver número de renglón" selected="true" fontWeight="bold" />
+	            	<mx:CheckBox id="chbCellPadding"        label="Relleno de celdas" selected="true"  fontWeight="bold" />
+	            	<!--<mx:CheckBox id="chbCellSpacing"        label="Espacios entre celdas" enabled="{rbTipoReporte.selectedValue=='PDF'}" fontWeight="bold" />-->					
+	            	<mx:CheckBox id="chbBgColor"            label="Color de fondo en impares" selected="true" fontWeight="bold" />
+	            	<mx:CheckBox id="chbBorder"             label="Bordes en tabla" selected="true" fontWeight="bold" />
+	            	<mx:CheckBox id="chbFooter"             label="Pie de Tabla" selected="true" fontWeight="bold" />
+	            </mx:VBox>
+			</mx:VBox>
+			
+			<mx:VRule height="100%" width="5"  />
+			
+			
+			<mx:VBox>
+				<mx:HBox backgroundColor="#DEDEDE" backgroundAlpha=".5" borderStyle="solid" cornerRadius="9" width="100%" horizontalAlign="center"><mx:Label text="Opciones de Impresión" fontWeight="bold" /></mx:HBox>
+				<mx:HRule width="100%" />
+				<mx:HBox>
+					<mx:Label text="Tipo de Reporte:" fontWeight="bold" width="100" />
+					<mx:HBox width="100">
+						<mx:VBox width="33%" horizontalAlign="center">
+							<mx:Image source="{Iconos.PDF24}" click="{rbTipoReporte.selectedValue='PDF'}" toolTip="PDF" /> <!-- ICON_PDF24  ICON_EXCEL24 -->
+							<mx:RadioButton groupName="rbTipoReporte" value="PDF" selected="true" toolTip="PDF" />	
+						</mx:VBox>
+						
+						<mx:VBox width="33%" horizontalAlign="center">
+							<mx:Image source="{Iconos.EXCEL24}" click="{rbTipoReporte.selectedValue='EXCEL'}" toolTip="EXCEL"/>
+							<mx:RadioButton groupName="rbTipoReporte" value="EXCEL" toolTip="EXCEL" />
+						</mx:VBox>
+						
+						<mx:VBox width="33%" horizontalAlign="center">
+							<mx:Image source="{Iconos.CSV24}" click="{rbTipoReporte.selectedValue='CSV'}" toolTip="CSV"/>
+							<mx:RadioButton groupName="rbTipoReporte" value="CSV" toolTip="CSV" />
+						</mx:VBox>						
+					</mx:HBox>
+				</mx:HBox>
+				<mx:HBox>
+					<mx:Label text="Orientación:" fontWeight="bold" width="100" />
+					<mx:HBox>
+						<mx:Image source="{Iconos.ICON_VERTICAL}" click="{rbOrientacion.selectedValue='P'}" toolTip="Vertical"    />
+						<mx:RadioButton groupName="rbOrientacion" value="P" selected="true" toolTip="Vertical"  />
+						<mx:Image source="{Iconos.ICON_HORIZONTAL}" click="{rbOrientacion.selectedValue='L'}" toolTip="Horizontal"    />
+						<mx:RadioButton groupName="rbOrientacion" value="L" toolTip="Horizontal" />
+					</mx:HBox>
+				</mx:HBox>
+				<mx:HBox>
+					<mx:Label text="Tamaño de Hoja:" fontWeight="bold" width="100" />
+					<mx:HBox >
+						<mx:Image source="{Iconos.ICON_OFICIO}" click="{rbTamanioHoja.selectedValue='legal'}" toolTip="Oficio" />
+						<mx:RadioButton groupName="rbTamanioHoja" value="legal" selected="true" width="22" toolTip="Oficio" />
+						<mx:Image source="{Iconos.ICON_CARTA}" click="{rbTamanioHoja.selectedValue='letter'}" toolTip="Carta" />
+						<mx:RadioButton groupName="rbTamanioHoja" value="letter" toolTip="Carta" />				
+					</mx:HBox>
+				</mx:HBox>
+				<mx:HBox >
+					<mx:Label text="Tamaño de Letra:" fontWeight="bold" />
+					<mx:HSlider width="100" id="hsTamanio" showTrackHighlight="true" labels="['8','','10','','12','','14','','16']"    minimum="8" maximum="16" value="9"
+							tickInterval="1" snapInterval="1" allowTrackClick="true" liveDragging="true" dataTipPrecision="0"  />				
+				</mx:HBox>
+			</mx:VBox>
+			
+		</mx:HBox>
+		
+		<mx:HRule width="100%" />
+		
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:LinkButton id="btnImprimir" icon="{Iconos.PRINT16}" label="Generar Reporte" enabled="false"  click="{validaFiltros()}" toolTip="Generar Reporte" doubleClickEnabled="false" />
+			
+			<mx:ProgressBar indeterminate="true" label="Cargando Datos..." id="pgbCaramelo" visible="false" includeInLayout="false" /><!--barColor="#C70025"-->
+			
+			<mx:LinkButton id="btnDescarga" visible="false" includeInLayout="false" label="Descargar Archivo"  click="{generaReporte()}" toolTip="Descargar Archivo" doubleClickEnabled="false" />			
+		</mx:HBox>
+	</mx:VBox>
+	
+	
+</actionscripts:SuperPanel>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:ModuleLoader xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				 xmlns:s="library://ns.adobe.com/flex/spark" 
+				 xmlns:mx="library://ns.adobe.com/flex/mx"
+				 xmlns="*" creationComplete="init()">
+	<fx:Script>
+		<![CDATA[
+			public function init():void {
+				addEventListener("urlChanged", onUrlChanged);
+				addEventListener("loading", onLoading);
+				addEventListener("progress", onProgress);
+				addEventListener("setup", onSetup);
+				addEventListener("ready", onReady);
+				addEventListener("error", onError);
+				addEventListener("unload", onUnload);
+				
+				standin = box;
+				removeChild(standin);        
+			}
+			
+			public function onUrlChanged(event:Event):void {
+				if (url == null) {
+					if (contains(standin))
+						removeChild(standin);
+				} else {
+					if (!contains(standin))
+						addChild(standin);
+				}
+				progress.indeterminate=true;
+				unload.enabled=false;
+				reload.enabled=false;
+			}
+			
+			public function onLoading(event:Event):void {
+				progress.label="Cargando Modulo... ";// + url;
+				if (!contains(standin))
+					addChild(standin);
+				
+				progress.indeterminate=true;
+				unload.enabled=false;
+				reload.enabled=false;
+			}
+			
+			public function onProgress(event:ProgressEvent):void {
+				progress.label = ((event.bytesLoaded/1024).toFixed(0))+'kb de '+((event.bytesTotal/1024).toFixed(0))+'kb';
+				progress.indeterminate=false;
+				unload.enabled=true;
+				reload.enabled=false;
+			}
+			
+			public function onSetup(event:Event):void {
+				progress.label="Modulo inicializado.";
+				progress.indeterminate=false;
+				unload.enabled=true;
+				reload.enabled=true;
+			}
+			
+			public function onReady(event:Event):void {
+				progress.label="Modulo Cargado.";
+				unload.enabled=true;
+				reload.enabled=true;
+				
+				if (contains(standin))
+					removeChild(standin);
+			}
+			
+			public function onError(event:Event):void {
+				
+				var arr:Array = url.split("/");
+				
+				progress.label="Error cargando modulo " + arr[arr.length-1];
+				unload.enabled=false;
+				reload.enabled=true;
+			}
+			
+			public function onUnload(event:Event):void {
+				if (url == null) {
+					if (contains(standin)){
+						removeChild(standin);
+					}
+				} 
+				else {
+					if (!contains(standin)){
+						addChild(standin);
+					}                
+				}
+				progress.indeterminate=true;
+				progress.label="El modulo fue interrumpido.";
+				unload.enabled=false;
+				reload.enabled=true;
+			}
+			
+			public var standin:DisplayObject;
+		]]>
+	</fx:Script>
+	
+	<mx:HBox width="100%" height="100%" horizontalAlign="center" paddingTop="100" id="box">
+		<mx:Panel layout="vertical" width="336" height="135" horizontalAlign="center" verticalAlign="middle" title="Cargando...">
+			<mx:ProgressBar id="progress" source="{this}" labelPlacement="bottom" height="40" width="70%" color="#000000" fontSize="11"/>
+			<mx:HBox width="100%" horizontalAlign="center" horizontalGap="8">
+				<mx:Button id="unload" label="Cancelar" click="unloadModule()"/>
+				<mx:Button id="reload" label="Recargar" click="unloadModule();loadModule()"/>
+			</mx:HBox>
+		</mx:Panel>
+	</mx:HBox>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</mx:ModuleLoader>

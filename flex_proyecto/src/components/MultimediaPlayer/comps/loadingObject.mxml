@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Panel creationComplete="progress.setFocus()" xmlns:mx="http://www.adobe.com/2006/mxml" cornerRadius="6"  height="60" width="220" horizontalAlign="center" verticalAlign="middle" title="Cargando Datos...">
+      <mx:ProgressBar id="progress" indeterminate="true" height="10" trackHeight="10" width="160" label=" "/>
+</mx:Panel>

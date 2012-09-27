@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:mx="library://ns.adobe.com/flex/mx"
+				width="100%" height="100%" close="cerrarVentana(event)" cornerRadius="4"
+				creationComplete="init(event)" layout="vertical" showCloseButton="true"
+				title="Agregar Cliente" xmlns:SuperGrid="components.SuperGrid.*" 
+				xmlns:ns="flex_modulos.Proyectos.comps.*" 
+				xmlns:ns1="flex_modulos.catalogos.Clientes2.comps.*">
+	<fx:Script>
+		<![CDATA[
+			import actionscripts.DataProviders;
+			import actionscripts.DataProvidersEvent;
+			import actionscripts.Utils;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.events.IndexChangedEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.ObjectProxy;
+			
+			[Bindable] public var item:Object = new Object();
+			[Bindable] public var itemCliente:Object = new Object();
+			[Bindable] public var strAccion:String="";
+			[Bindable] public var huboCambios:Boolean=false;
+			[Bindable] public var _padre:stProyectos;
+			
+			public function getCatalogoSt():clientes2_agregar{
+				return new clientes2_agregar;
+			}
+			
+			protected function init(event:FlexEvent):void
+			{
+				try{
+					//_padreContenedor.allowMaximize=false;
+					//_padreContenedor.allowResize=false;
+					
+					//loader.dp.cargaLoader(this);
+					
+					loader.dp.revisaPermisosGrid(gridResultados,"clientes_consultar","clientes_crear","clientes_editar","clientes_borrar","clientes_copiar","clientes_imprimir");
+					
+					//loader.dp.addEventListener(DataProvidersEvent.COMPLETEDP,llenarCombo);
+					//loader.dp.hacerWS(['ciudades']);
+					
+					
+					//ws_traerContactos.send();
+					//item.status=1;
+					if(strAccion=="NUEVO"){
+						
+						//loader.dp.hacerWS(['ciudades']);
+					}
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						ws_traerClienteRegistro.send();
+						
+						
+					}	
+					//Alert.show(generarClaveProyecto());
+				}catch(ex:Error){
+					loader.msgAviso("stciudades->init() ",3,ex);
+				}
+			}
+			
+			//FUNCION QUE LLENA LOS COMBOS
+			private function llenarCombo(evt:DataProvidersEvent):void{
+				try{
+					//arrFamilias.source = Utils.clone(loader.dp.arrFamilias.source);		
+					
+					
+					
+					if(strAccion=="EDITAR" || strAccion=="COPIAR"){
+						cambiaRegistro();
+					}
+					
+				}catch(ex:Error){
+					loader.msgAviso("Error->LlenarCombo",3,ex);
+				}
+				
+				// Quitamos Loader
+				loader.dp.removeLoader();
+				
+				
+				//Remover listener de dataproviders
+				evt.target.removeEventListener( evt.type, arguments.callee );
+			}
+			
+			public function cambiaRegistro():void{
+				huboCambios = false;
+				// Buscar Ciudad
+			//	DataProviders.selectedIndexCombo(cbxCiudad,'clave_ciudad',item.clave_ciudad);
+				
+			//	ws_traerContactos.send();
+			//	if(tnClientes.selectedIndex==1){
+			//		ws_traerEncabezadoCotizaciones.send();
+			//	}
+				// Buscar Localidad
+				//DataProviders.selectedIndexCombo(cbxLocalidad,'clavelocalidad',item.clavelocalidad);
+				
+				
+			}
+			
+			protected function cerrarVentana(event:CloseEvent):void
+			{
+				PopUpManager.removePopUp(this);
+			}
+			
+			
+			protected function seleccionarCliente():void
+			{
+				// TODO Auto-generated method stub
+				itemCliente = gridResultados.selectedItem();
+				tnClientes.selectedIndex=0;
+				
+				//Alert.show(Utils.print_r(item),"ITEM");
+				//Alert.show(Utils.print_r(itemCliente),"ITEMcliente");
+				loader.msgAviso("Cliente: "+itemCliente.nombre+" Agregado",1);
+				_padre.claveCliente = gridResultados.selectedItem().idcliente;
+				_padre.txtCliente.text = gridResultados.selectedItem().nombre;
+				
+				_padre.item.idcliente = gridResultados.selectedItem().idcliente;
+				_padre.item.nombre_cliente = gridResultados.selectedItem().nombre;
+				
+				//Alert.show(Utils.print_r(_padre.item));
+				
+				/*
+				txtNombre.text = item.nombre;
+				txtRFC.text = item.rfc;
+				txtCalleNumero.text = item.direccion_1;
+				txtColonia.text = item.direccion_2;
+				txtCiudad.text = item.ciudad;
+				txtCP.text = item.cp;
+				txtEstado.text = item.estado;
+				txtNombreContacto.text = item.contacto_nombre;
+				txtPuesto.text = item.contacto_nombre;
+				txtTelefnosContacto.text = item.contacto_telefonos;
+				txtCorreo.text = item.contacto_correo;
+				*/
+			}
+			
+			protected function cargarDatosCliente(event:ResultEvent):void{
+				itemCliente = event.result.tablas.tabla0.rows;
+				//Alert.show(Utils.print_r(itemCliente));
+			}
+			
+			protected function tnClientes_changeHandler(event:IndexChangedEvent):void
+			{
+				if (event.newIndex==2){
+					// Ciudades
+					
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<mx:TabNavigator id="tnClientes" width="850" height="100%" borderStyle="solid" change="tnClientes_changeHandler(event)" >
+		<mx:VBox label="Datos Cliente" width="100%" height="100%">
+			<mx:Form width="100%">
+				<mx:HBox width="100%">
+					<mx:VBox width="100%" >
+						<mx:FormHeading label="Datos Generales" fontWeight="bold"/>
+						<mx:FormItem label="Nombre:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtNombre" width="100%" text="{itemCliente.nombre}"/>
+						</mx:FormItem>
+						<mx:FormItem label="RFC:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtRFC" width="100%" text="{itemCliente.rfc}"/>
+						</mx:FormItem>
+						<mx:FormItem label="Calle y Número:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtCalleNumero" width="100%" text="{itemCliente.direccion_1}"/>
+						</mx:FormItem>
+						<mx:FormItem label="Colonia:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtColonia" width="100%" text="{itemCliente.direccion_2}"/>
+						</mx:FormItem>
+						<mx:FormItem label="Ciudad:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtCiudad" width="100%" text="{itemCliente.ciudad}"/>
+						</mx:FormItem>
+						<mx:FormItem label="CP:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtCP" width="100%" text="{itemCliente.cp}"/>
+						</mx:FormItem>
+						<mx:FormItem label="Estado:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtEstado" width="100%" text="{itemCliente.estado}"/>
+						</mx:FormItem>
+					</mx:VBox>
+				
+					<mx:VRule width="1" height="100%"/>
+					
+					<mx:VBox width="100%">
+						<mx:FormHeading label="Datos de Contacto" fontWeight="bold"/>
+						<mx:FormItem label="Nombre:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtNombreContacto" width="100%" text="{itemCliente.contacto_nombre}"/>
+						</mx:FormItem>
+						<mx:FormItem label="Puesto:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtPuesto" width="100%" text="{itemCliente.contacto_nombre}"/>
+						</mx:FormItem>
+						
+						<mx:FormItem label="Telefonos:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtTelefnosContacto" width="100%" text="{itemCliente.contacto_telefonos}"/>
+						</mx:FormItem>
+						<mx:FormItem label="Correo:" labelWidth="100" width="100%">
+							<mx:TextInput id="txtCorreo" width="100%" text="{itemCliente.contacto_correo}"/>
+						</mx:FormItem>
+					</mx:VBox>
+				</mx:HBox>
+				<!--
+				<mx:HRule width="100%"/>
+				<mx:FormItem width="100%">
+					<mx:HBox width="100%" horizontalAlign="right">
+						<mx:LinkButton id="btnGuardar" label="Guardar" fontWeight="bold"/>
+						<mx:LinkButton id="btnCancelar" label="Cancelar" fontWeight="bold"/>
+					</mx:HBox>
+				</mx:FormItem>
+				-->
+			</mx:Form>
+		</mx:VBox>
+		
+		<mx:VBox label="Cliente Existente" width="100%" height="100%">
+			<mx:Panel backgroundColor="#ffffff" width="100%" height="100%" layout="vertical" title="Clientes" horizontalAlign="left" verticalAlign="top" paddingTop="5"  >		
+				<SuperGrid:SuperGrid id="gridResultados"  wordWrap="true" tituloReporte="Catalogo de Clientes" 
+									 _arrColumnas="{columnasGrid}" _wsFiltrar="{ws_traerClientes}" _wsBorrar="{ws_borrarCliente}" _padreCatalogo="{this}"
+									 isCatalogo="true" _idtabla="idcliente" _doubleClickEnabled="true" _itemDoubleClick="{seleccionarCliente}" />		
+			</mx:Panel>
+		</mx:VBox>  
+	</mx:TabNavigator>
+	
+	<fx:Declarations>
+		<fx:Array id="columnasGrid">
+			<mx:DataGridColumn dataField="idcliente" headerText="Clave_Cliente" width="80" />
+			<mx:DataGridColumn dataField="nombre" headerText="Cliente" width="200" />
+			<mx:DataGridColumn dataField="rfc" headerText="RFC" width="100" />
+		</fx:Array>	
+		
+		<mx:HTTPService id="ws_traerClientes" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request xmlns="">
+				<opcion>TRAER_CLIENTES</opcion>
+				<idusuario>{loader.objetoUsuario.id}</idusuario>
+				<idtipousuario>{loader.idtipousuario}</idtipousuario>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService showBusyCursor="true" id="ws_traerClienteRegistro" method="POST" resultFormat="object" requestTimeout="30" 
+			fault="loader.dp.faultHandler(event)" result="{cargarDatosCliente(event);loader.dp.removeLoader()}" 
+			invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request>
+				<opcion>TRAER_CLIENTE_PROYECTO</opcion>
+				<idcliente>{_padre.item.idcliente}</idcliente>
+				<idtipousuario>{loader.idtipousuario}</idtipousuario>
+			</mx:request>
+		</mx:HTTPService>
+		
+		<mx:HTTPService id="ws_borrarCliente" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request xmlns="">
+				<opcion>BORRAR_CLIENTE</opcion>
+			</mx:request>
+		</mx:HTTPService>
+		
+	<!--	<mx:HTTPService showBusyCursor="true" id="ws_nuevo_registro" method="POST" resultFormat="text" requestTimeout="30" 
+						fault="loader.dp.faultHandler(event)" result="{resultGuardar(event);loader.dp.removeLoader()}" 
+						invoke="loader.dp.cargaLoader(this)" url="{loader.strHostUrl}ws_proyectos.php">
+			<mx:request>
+				<opcion>CAPTURA_CLIENTE</opcion>
+				
+				<clave_cliente>{claveCliente}</clave_cliente>
+				<nombre_cliente>{txtNombreProyecto.text}</nombre_cliente>
+				<direccion_1>{txtMontoProbable.text}</direccion_1>
+				<direccion_2>{txtPorcentajeProyectado.text}</direccion_2>
+				<clave_ciudad>{dtfFDecision.text}</clave_ciudad>
+				<cp>{loader.usuario}</cp>
+				<rfc>{txtDescripcion.text}</rfc>
+				<clave_vendedor>{txtDescripcion.text}</clave_vendedor>
+				<contacto_nombre>{txtDescripcion.text}</contacto_nombre>
+				<contacto_correo>{txtDescripcion.text}</contacto_correo>
+				<contacto_puesto>{txtDescripcion.text}</contacto_puesto>
+				<contacto_telefonos>{txtDescripcion.text}</contacto_telefonos>
+			</mx:request>
+		</mx:HTTPService>
+		--><!--<clave_cliente>{item.clave_cliente}</clave_cliente>-->
+	</fx:Declarations>
+</mx:TitleWindow>
